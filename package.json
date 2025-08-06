@@ -17,5 +17,8 @@
     "url": "https://github.com/domo-ph/domoph/issues"
   },
   "homepage": "https://github.com/domo-ph/domoph#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
 }
