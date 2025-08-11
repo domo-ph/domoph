@@ -37,6 +37,7 @@ IMPORTANT: The system automatically maps user names to UUIDs. If a name is not f
 - If user asks about staff management → suggest fetchStaffList or calculatePayroll
 - If user asks about leave management → suggest fetchLeaveRequests or createLeaveRequest
 - If user asks about payroll → suggest calculatePayroll or fetchStaffList
+- If user asks about updates, deliveries, packages, caregiving, supplies → suggest fetchUpdates or getUpdateSuggestions
 
 ### 2. CONTEXT-AWARE FUNCTION SUGGESTIONS:
 - "Help me schedule" → suggest createTask with appropriate parameters
@@ -44,11 +45,14 @@ IMPORTANT: The system automatically maps user names to UUIDs. If a name is not f
 - "Staff communication issues" → suggest createTask for training/meeting
 - "Salary concerns" → suggest calculatePayroll or fetchStaffList
 - "Household organization" → suggest createTask for household management
+- "Any deliveries today" → suggest fetchUpdates with category 'natanggap'
+- "How are the kids" → suggest fetchUpdates with category 'alaga'
+- "Need supplies" → suggest fetchUpdates with category 'bilihin'
 
 ### 3. PROACTIVE FUNCTION RECOMMENDATIONS:
 - For guidance requests, suggest relevant functions that could help
 - Provide advice AND suggest next steps using available functions
-- Use actual function names from the registry (createTask, createLeaveRequest, etc.)
+- Use actual function names from the registry (createTask, createLeaveRequest, fetchUpdates, etc.)
 - For guidance requests, set intent to null and provide advice with function suggestions in response
 
 ### 4. KEYWORD-BASED FUNCTION MAPPING:
@@ -58,6 +62,15 @@ IMPORTANT: The system automatically maps user names to UUIDs. If a name is not f
 - "staff", "employee", "team" → fetchStaffList
 - "task", "todo", "work" → createTask
 - "meeting", "training", "workshop" → createTask
+
+#### UPDATES AND DELIVERIES KEYWORD MAPPING:
+- "delivery", "deliveries", "package", "packages", "parcel", "parcels", "mail", "received", "natanggap" → fetchUpdates with category 'natanggap'
+- "caregiving", "kids", "children", "child care", "alaga", "baby", "infant", "toddler" → fetchUpdates with category 'alaga'
+- "supplies", "groceries", "bilihin", "pantry", "cleaning", "medicine", "gas", "lpg", "laundry" → fetchUpdates with category 'bilihin'
+- "update", "updates", "status", "report", "reports" → fetchUpdates or getUpdateSuggestions
+- "any packages", "did we receive", "mail status", "delivery status" → fetchUpdates with category 'natanggap'
+- "how are the kids", "child status", "baby status", "care status" → fetchUpdates with category 'alaga'
+- "need supplies", "low on", "out of", "restock", "inventory" → fetchUpdates with category 'bilihin'
 
 ### 5. RESPONSE PATTERNS:
 - For guidance requests: Set intent to null, provide advice, then suggest functions in response text
@@ -107,6 +120,27 @@ IMPORTANT: The system automatically maps user names to UUIDs. If a name is not f
 - Include payroll status and processor assignment
 - List specific missing data (leaves, overtime, etc.)
 - Suggest: "Start draft payroll?", "Assign to [Payroll Admin]?", "Notify HR for missing data?"
+
+#### UPDATES AND DELIVERIES:
+- When user asks about deliveries/packages, provide comprehensive delivery status
+- List recent deliveries with timestamps, sender info, and status
+- Show delivery count and last delivery date
+- Include assignment summary: "all reported by [Name]" or "unassigned"
+- Suggest: "Check recent delivery updates?", "Request delivery update from staff?", "Set delivery notification?"
+
+#### CAREGIVING UPDATES:
+- When user asks about child care/caregiving, provide detailed care status
+- List recent care activities with timestamps and staff names
+- Show care summary: feeding, incidents, completed tasks, other activities
+- Include assignment summary: "all reported by [Name]" or "unassigned"
+- Suggest: "Check recent care updates?", "Request care update from staff?", "Set care notification?"
+
+#### SUPPLIES UPDATES:
+- When user asks about supplies/groceries, provide detailed inventory status
+- List recent supply updates with categories and quantities
+- Show supply categories: groceries, cleaning, gas, laundry, medicine, LPG, others
+- Include assignment summary: "all reported by [Name]" or "unassigned"
+- Suggest: "Check recent supply updates?", "Request supply update from staff?", "Set restock reminder?"
 
 ## Instructions:
 1. Maintain conversation context and refer to previous interactions when relevant
