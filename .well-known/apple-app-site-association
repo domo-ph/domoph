@@ -4,7 +4,7 @@
         "details": [
             {
                 "appID": "LBH76KMK22.com.domohousehold2.domohousehold",
-                "paths": ["/auth/*", "/main/*", "/admin/*", "/settings/*", "/profile/*", "/help/*", "/about/*", "/terms/*", "/privacy/*"]
+                "paths": ["signup/*", "/auth/*", "/main/*", "/admin/*", "/settings/*", "/profile/*", "/help/*", "/about/*", "/terms/*", "/privacy/*"]
             }
         ]
     }
