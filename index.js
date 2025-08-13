@@ -5,6 +5,20 @@ const fs = require('fs');
 const app = express();
 const port = 3000;
 
+// Custom middleware to set correct content type for apple-app-site-association
+app.get('/.well-known/apple-app-site-association', (req, res) => {
+  const filePath = path.join(__dirname, '.well-known', 'apple-app-site-association');
+  
+  if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(content);
+  } else {
+    res.status(404).send('Apple app site association file not found');
+  }
+});
+
+// Serve other .well-known files with default handling
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 
 // Serve markdown files directly
