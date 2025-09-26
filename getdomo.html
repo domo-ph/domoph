@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Domo App</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 500px;
+        }
+        
+        .logo {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .message {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .fallback {
+            margin-top: 2rem;
+        }
+        
+        .store-link {
+            display: inline-block;
+            margin: 0.5rem;
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: background 0.3s ease;
+        }
+        
+        .store-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🏠 Domo</div>
+        <div class="message">Redirecting you to the app store...</div>
+        <div class="loading"></div>
+        
+        <div class="fallback" id="fallback" style="display: none;">
+            <p>Choose your platform:</p>
+            <a href="#" id="androidLink" class="store-link">Google Play Store</a>
+            <a href="#" id="iosLink" class="store-link">App Store</a>
+        </div>
+    </div>
+
+    <script>
+        // App store URLs - replace with your actual app URLs
+        const ANDROID_STORE_URL = 'https://play.google.com/store/apps/details?id=com.domohousehold';
+        const IOS_STORE_URL = 'https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375';
+        
+        // Device detection function
+        function detectDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            
+            // Check for Android
+            if (userAgent.includes('android')) {
+                return 'android';
+            }
+            
+            // Check for iOS (iPhone, iPad, iPod)
+            if (/iphone|ipad|ipod/.test(userAgent)) {
+                return 'ios';
+            }
+            
+            // Check for other mobile devices
+            if (/mobile|tablet/.test(userAgent)) {
+                return 'mobile';
+            }
+            
+            return 'desktop';
+        }
+        
+        // Redirect function
+        function redirectToStore(device) {
+            let storeUrl;
+            
+            switch(device) {
+                case 'android':
+                    storeUrl = ANDROID_STORE_URL;
+                    break;
+                case 'ios':
+                    storeUrl = IOS_STORE_URL;
+                    break;
+                default:
+                    // Show fallback options for other devices
+                    showFallback();
+                    return;
+            }
+            
+            // Redirect after a short delay to show the loading animation
+            setTimeout(() => {
+                window.location.href = storeUrl;
+            }, 1500);
+        }
+        
+        // Show fallback options
+        function showFallback() {
+            document.querySelector('.message').textContent = 'Please choose your platform:';
+            document.querySelector('.loading').style.display = 'none';
+            document.getElementById('fallback').style.display = 'block';
+            
+            // Set up fallback links
+            document.getElementById('androidLink').href = ANDROID_STORE_URL;
+            document.getElementById('iosLink').href = IOS_STORE_URL;
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const device = detectDevice();
+            redirectToStore(device);
+        });
+        
+        // Additional check for deep linking (if app is installed)
+        function checkAppInstalled() {
+            // This is a simplified check - in production you might want to use
+            // more sophisticated deep linking techniques
+            const startTime = Date.now();
+            
+            // Try to open the app with a custom URL scheme
+            const appUrl = 'domo://open'; // Replace with your app's URL scheme
+            
+            // Create a hidden iframe to attempt deep link
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = appUrl;
+            document.body.appendChild(iframe);
+            
+            // Check if the app opened (user left the page)
+            setTimeout(() => {
+                const timeDiff = Date.now() - startTime;
+                if (timeDiff < 2000) {
+                    // App likely opened, user left the page
+                    console.log('App opened successfully');
+                } else {
+                    // App didn't open, proceed with store redirect
+                    console.log('App not installed, redirecting to store');
+                }
+                
+                // Clean up
+                document.body.removeChild(iframe);
+            }, 1000);
+        }
+        
+        // Uncomment the line below if you want to try deep linking first
+        // checkAppInstalled();
+    </script>
+</body>
+</html>
