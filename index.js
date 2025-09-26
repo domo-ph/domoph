@@ -197,8 +197,12 @@ app.get('/markdown/:filename', (req, res) => {
 // Serve static files (including markdown) from a public directory
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname)));
+
+// Serve the main landing page
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(port, () => {
