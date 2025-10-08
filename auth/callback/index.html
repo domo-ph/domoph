@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+        function getFragmentParams() {
+            const fragment = window.location.hash.substring(1);
+            const params = new URLSearchParams(fragment);
+            return params;
+        }
+
+        function redirectToApp() {
+            const params = getFragmentParams();
+            const id_token = params.get('id_token');
+            const code = params.get('code');
+            const state = params.get('state');
+            const error = params.get('error');
+            const error_description = params.get('error_description');
+
+            let appRedirectUrl = 'domohousehold://auth/callback';
+
+            if (error) {
+                appRedirectUrl += `?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(error_description || 'Unknown error')}`;
+            } else if (id_token) {
+                appRedirectUrl += `?id_token=${encodeURIComponent(id_token)}&code=${encodeURIComponent(code || '')}&state=${encodeURIComponent(state || '')}`;
+            } else {
+                appRedirectUrl += `?error=${encodeURIComponent('no_token_or_code')}&error_description=${encodeURIComponent('No id_token or code received from Apple')}`;
+            }
+
+            window.location.replace(appRedirectUrl);
+        }
+
+        // Call the redirect function when the page loads
+        window.onload = redirectToApp;
+    </script>
+</head>
+<body>
+    <p>If you are not redirected automatically, <a id="manualRedirect" href="#">click here</a>.</p>
+    <script type="text/javascript">
+        document.getElementById('manualRedirect').onclick = function() {
+            redirectToApp();
+            return false;
+        };
+    </script>
+</body>
+</html>
