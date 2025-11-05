@@ -696,6 +696,25 @@
             transition: opacity 0.2s;
         }
 
+        /* Device-specific button visibility */
+        .app-store-link.hide-on-device {
+            display: none;
+        }
+
+        /* Show only relevant button on mobile devices */
+        .device-android .app-store-link.ios-only {
+            display: none;
+        }
+
+        .device-ios .app-store-link.android-only {
+            display: none;
+        }
+
+        .device-desktop .app-store-link,
+        .device-mobile .app-store-link {
+            display: inline-block;
+        }
+
         /* Responsive styles for social auth instructions and success section */
         @media (max-width: 767px) {
             .social-auth-instructions-section,
@@ -1769,10 +1788,10 @@
                         Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
                     </p>
                     <div class="app-store-buttons">
-                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link">
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
                             <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
                         </a>
-                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link">
+                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
                             <img src="google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
                         </a>
                     </div>
@@ -1793,10 +1812,10 @@
                         Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
                     </p>
                     <div class="app-store-buttons">
-                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link">
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
                             <img src="assets/app-store-button.png" alt="Download on App Store" class="app-store-button" />
                         </a>
-                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link">
+                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
                             <img src="assets/google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
                         </a>
                     </div>
@@ -2516,6 +2535,45 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
+
+        // Device detection function (same as getdomo.html)
+        function detectDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            
+            // Check for Android
+            if (userAgent.includes('android')) {
+                return 'android';
+            }
+            
+            // Check for iOS (iPhone, iPad, iPod)
+            if (/iphone|ipad|ipod/.test(userAgent)) {
+                return 'ios';
+            }
+            
+            // Check for other mobile devices
+            if (/mobile|tablet/.test(userAgent)) {
+                return 'mobile';
+            }
+            
+            return 'desktop';
+        }
+
+        // Apply device detection to app store buttons
+        function applyDeviceDetection() {
+            const device = detectDevice();
+            const body = document.body;
+            
+            // Remove existing device classes
+            body.classList.remove('device-android', 'device-ios', 'device-mobile', 'device-desktop');
+            
+            // Add device-specific class
+            body.classList.add(`device-${device}`);
+        }
+
+        // Initialize device detection on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            applyDeviceDetection();
+        });
 
         // Form initialization happens when showEmailMobileForm() is called
 
