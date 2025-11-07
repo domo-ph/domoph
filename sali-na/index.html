@@ -1,0 +1,2593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign up - Domo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Colors */
+            --primary-default: #3B268C;
+            --primary-darker: #34227C;
+            --secondary-default: #1B7A9D;
+            --secondary-subtle: #E9F6FB;
+            --destructive-default: #D84265;
+            --surface-subtle: #FFFFFF;
+            --surface-default: #F9F8FA;
+            --border-default: #9D9BA6;
+            --border-light: #E7E7E9;
+            --text-black: #000000;
+            --text-body: #4E4D56;
+            --text-description: #83818F;
+            --text-disabled: #CDCCD1;
+            --neutral-300: #B5B3BC;
+            --surface-disabled-dark: #C2C1C8;
+            
+            /* Spacing */
+            --spacing-xs: 2px;
+            --spacing-s: 4px;
+            --spacing-sm: 8px;
+            --spacing-m: 16px;
+            --spacing-ml: 20px;
+            --spacing-l: 24px;
+            --spacing-xl: 32px;
+            --spacing-xxl: 40px;
+            --spacing-xxxl: 48px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(-59deg, rgba(141, 61, 210, 1) 5%, rgba(233, 118, 215, 1) 81%);
+            background-attachment: fixed;
+            color: var(--text-black);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background-color: transparent;
+            padding: 14px var(--spacing-m);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 56px;
+        }
+
+        .header-back {
+            position: absolute;
+            left: var(--spacing-m);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            z-index: 2;
+        }
+
+        .header-back:hover {
+            opacity: 0.7;
+        }
+
+        .header-back svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--surface-subtle);
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 28px;
+            color: var(--surface-subtle);
+            text-align: center;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* Logo/Title Section */
+        .logo-section {
+            padding: 40px var(--spacing-m) 20px;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-s);
+        }
+
+        .logo-title {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 28px;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            text-align: left;
+        }
+
+        /* Social Auth Buttons Section */
+        .social-auth-section {
+            padding: var(--spacing-ml) var(--spacing-m);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-m);
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 12px var(--spacing-m);
+            background-color: var(--surface-subtle);
+            border: 1px solid var(--text-disabled);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            color: var(--text-black);
+            cursor: pointer;
+            transition: opacity 0.2s, background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: left;
+            gap: 10px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .auth-button:hover {
+            opacity: 0.9;
+        }
+
+        .auth-button-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .auth-note {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            text-align: left;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        /* Or Divider */
+        .divider-section {
+            padding: var(--spacing-m);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-ml);
+        }
+
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background-color: var(--text-disabled);
+        }
+
+        .divider-text {
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 20px;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+        }
+
+        /* Email/Mobile Link */
+        .email-mobile-link-section {
+            padding: var(--spacing-ml) var(--spacing-m);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-m);
+        }
+
+        .email-mobile-link {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            color: #9FDAEF;
+            text-align: left;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .email-mobile-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Form Section */
+        .form-section {
+            display: none;
+            padding: var(--spacing-ml) var(--spacing-m);
+            background-color: var(--surface-subtle);
+            border-radius: 12px 12px 0 0;
+            margin-top: auto;
+        }
+
+        .form-section.show {
+            display: block;
+        }
+
+        /* Mobile OTP Section */
+        .mobile-otp-section {
+            display: none;
+            flex-direction: column;
+            gap: var(--spacing-xl);
+            padding: 0 var(--spacing-m);
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .mobile-otp-section.show {
+            display: flex;
+        }
+
+        /* Mobile Input Container */
+        .mobile-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-s);
+            padding: var(--spacing-sm) var(--spacing-m);
+            background-color: var(--surface-subtle);
+            border: 1px solid var(--border-default);
+            border-radius: 8px;
+            min-height: 58px;
+            justify-content: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .mobile-input-label {
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 14px;
+            letter-spacing: -0.006em;
+            color: var(--secondary-default);
+        }
+
+        .mobile-input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mobile-input-flag {
+            width: 25.2px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .mobile-input-number {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            color: var(--text-body);
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .mobile-input-number::placeholder {
+            color: var(--neutral-300);
+        }
+
+        /* OTP Section */
+        .otp-section {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-m);
+        }
+
+        .otp-label {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+        }
+
+        .otp-inputs {
+            display: flex;
+            gap: var(--spacing-sm);
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        .otp-input {
+            width: 58px;
+            height: 58px;
+            padding: 0;
+            background-color: var(--surface-subtle);
+            border: 1px solid var(--border-default);
+            border-radius: 8px;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1;
+            letter-spacing: 0;
+            color: var(--text-body);
+            text-align: center;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+            aspect-ratio: 1;
+        }
+
+        .otp-input:focus {
+            border-color: var(--secondary-default);
+            box-shadow: 0 0 0 2px var(--secondary-subtle);
+        }
+
+        /* Buttons */
+        .btn-send-otp,
+        .btn-verify-otp {
+            width: 100%;
+            padding: 12px var(--spacing-m);
+            background-color: var(--text-disabled);
+            color: var(--text-description);
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            cursor: pointer;
+            transition: opacity 0.2s, background-color 0.2s;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .btn-send-otp:not(:disabled),
+        .btn-verify-otp:not(:disabled) {
+            background-color: var(--primary-default);
+            color: var(--surface-subtle);
+        }
+
+        .btn-send-otp:hover:not(:disabled),
+        .btn-verify-otp:hover:not(:disabled) {
+            background-color: var(--primary-darker);
+        }
+
+        .btn-send-otp:disabled,
+        .btn-verify-otp:disabled {
+            cursor: not-allowed;
+        }
+
+        /* Button Container */
+        .button-container,
+        .button-container-send {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .button-container {
+            padding-top: var(--spacing-xxl);
+            padding-bottom: var(--spacing-xxl);
+        }
+
+        /* Main Container */
+        .container {
+            flex: 1;
+            padding: 0;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Form Fields */
+        .form-group {
+            margin-bottom: var(--spacing-m);
+            width: 100%;
+        }
+
+        .form-group:last-of-type {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .input-label {
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 26px;
+            color: var(--secondary-default);
+            margin-bottom: 4px;
+            display: block;
+            width: 100%;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 26px;
+            color: var(--text-body);
+            background-color: var(--surface-subtle);
+            border: 1px solid var(--border-default);
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .input-field::placeholder {
+            color: var(--neutral-300);
+            font-weight: 500;
+        }
+
+        .input-field:focus {
+            border-color: var(--secondary-default);
+            box-shadow: 0 0 0 2px var(--secondary-subtle);
+        }
+
+        /* Mobile Input with Country Code */
+        .mobile-input-container {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            border: 1px solid var(--border-default);
+            border-radius: 8px;
+            background-color: var(--surface-subtle);
+            overflow: hidden;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .country-code-selector {
+            display: flex;
+            align-items: center;
+            padding: 12px 12px;
+            background-color: transparent;
+            border-right: 1px solid var(--border-default);
+            cursor: pointer;
+            min-width: 100px;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .country-code-selector:hover {
+            background-color: var(--surface-default);
+        }
+
+        .country-flag {
+            font-size: 18px;
+        }
+
+        .country-code-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-body);
+        }
+
+        .country-dropdown-icon {
+            font-size: 8px;
+            color: var(--text-description);
+            margin-top: 2px;
+        }
+
+        .mobile-input-field {
+            flex: 1;
+            border: none;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 26px;
+            color: var(--text-body);
+            background-color: transparent;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            min-width: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .mobile-input-field::placeholder {
+            color: var(--neutral-300);
+            font-weight: 500;
+        }
+
+        .mobile-input-container:focus-within {
+            border-color: var(--secondary-default);
+            box-shadow: 0 0 0 2px var(--secondary-subtle);
+        }
+
+        /* Error Message */
+        .error-message {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 24px;
+            color: var(--destructive-default);
+            text-align: center;
+            margin-bottom: 12px;
+            display: none;
+            width: 100%;
+            word-wrap: break-word;
+            padding: 0 var(--spacing-xs);
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        /* Success Message */
+        .success-message {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 24px;
+            color: var(--secondary-default);
+            text-align: center;
+            margin-bottom: 12px;
+            display: none;
+            width: 100%;
+            word-wrap: break-word;
+            padding: 0 var(--spacing-xs);
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* Country Picker Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-m);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--surface-subtle);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Social Auth Instructions Section */
+        .social-auth-instructions-section,
+        .success-section {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            padding: var(--spacing-m);
+            min-height: calc(100vh - 56px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .social-auth-instructions-section.show,
+        .success-section.show {
+            display: flex;
+        }
+
+        .social-auth-modal-body,
+        .success-modal-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-xl);
+            width: 100%;
+            padding: var(--spacing-xl) 0;
+        }
+
+        .social-auth-icon-container,
+        .success-icon-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding: 0;
+        }
+
+        .social-auth-icon,
+        .success-icon {
+            width: 288px;
+            height: 288px;
+            object-fit: contain;
+        }
+
+        .social-auth-text-container,
+        .success-text-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-m);
+            width: 100%;
+            max-width: 600px;
+            padding: 0 var(--spacing-m);
+            box-sizing: border-box;
+        }
+
+        .social-auth-title,
+        .success-title {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 28px;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            margin: 0;
+            text-align: center;
+            width: 100%;
+        }
+
+        .social-auth-description,
+        .success-description {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            margin: 0;
+            max-width: 100%;
+            text-align: left;
+            width: 100%;
+        }
+
+        .app-store-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-sm);
+            width: 100%;
+            margin-top: var(--spacing-sm);
+        }
+
+        .app-store-link {
+            display: inline-block;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .app-store-link:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+
+        .app-store-button {
+            width: 181px;
+            height: auto;
+            cursor: pointer;
+            display: block;
+            transition: opacity 0.2s;
+        }
+
+        /* Device-specific button visibility */
+        .app-store-link.hide-on-device {
+            display: none;
+        }
+
+        /* Show only relevant button on mobile devices */
+        .device-android .app-store-link.ios-only {
+            display: none;
+        }
+
+        .device-ios .app-store-link.android-only {
+            display: none;
+        }
+
+        .device-desktop .app-store-link,
+        .device-mobile .app-store-link {
+            display: inline-block;
+        }
+
+        /* Responsive styles for social auth instructions and success section */
+        @media (max-width: 767px) {
+            .social-auth-instructions-section,
+            .success-section {
+                padding: var(--spacing-m);
+            }
+
+            .social-auth-modal-body,
+            .success-modal-body {
+                padding: var(--spacing-m) 0;
+                gap: var(--spacing-xl);
+            }
+
+            .social-auth-icon-container,
+            .success-icon-container {
+                padding: 0;
+            }
+
+            .social-auth-icon,
+            .success-icon {
+                width: 216px;
+                height: 216px;
+            }
+
+            .social-auth-title,
+            .success-title {
+                font-size: 20px;
+                line-height: 24px;
+            }
+
+            .social-auth-description,
+            .success-description {
+                font-size: 13px;
+                line-height: 18px;
+                padding: 0 var(--spacing-xs);
+            }
+
+            .app-store-button {
+                width: 160px;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .social-auth-instructions-section,
+            .success-section {
+                padding: var(--spacing-xl);
+            }
+
+            .social-auth-icon,
+            .success-icon {
+                width: 256px;
+                height: 256px;
+            }
+
+            .app-store-button {
+                width: 170px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .social-auth-instructions-section,
+            .success-section {
+                padding: var(--spacing-xxl);
+            }
+
+            .social-auth-icon,
+            .success-icon {
+                width: 288px;
+                height: 288px;
+            }
+
+            .app-store-button {
+                width: 181px;
+            }
+        }
+
+        .modal-header {
+            padding: var(--spacing-m);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 28px;
+            color: var(--text-black);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-description);
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: var(--text-body);
+        }
+
+        .modal-search {
+            padding: var(--spacing-m);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .modal-search-input {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 20px;
+            color: var(--text-body);
+            background-color: var(--surface-default);
+            border: 1px solid var(--border-default);
+            border-radius: 8px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .modal-search-input:focus {
+            border-color: var(--secondary-default);
+            box-shadow: 0 0 0 2px var(--secondary-subtle);
+        }
+
+        .modal-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-sm) 0;
+        }
+
+        .country-item {
+            padding: 12px var(--spacing-m);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .country-item:hover {
+            background-color: var(--surface-default);
+        }
+
+        .country-item-flag {
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .country-item-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .country-item-name {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 20px;
+            color: var(--text-body);
+        }
+
+        .country-item-code {
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 18px;
+            color: var(--text-description);
+        }
+
+        /* Button */
+        .btn-primary {
+            width: 100%;
+            padding: 12px var(--spacing-sm);
+            background-color: var(--primary-default);
+            color: var(--surface-subtle);
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 20px;
+            cursor: pointer;
+            transition: opacity 0.2s, background-color 0.2s;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: var(--spacing-xxxl);
+            margin-bottom: var(--spacing-l);
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--primary-darker);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            background-color: var(--border-default);
+            cursor: not-allowed;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: var(--spacing-sm);
+            width: 100%;
+            padding: 0 var(--spacing-xs);
+        }
+
+        .footer-text {
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 30px;
+            color: var(--text-body);
+            display: inline;
+            word-wrap: break-word;
+        }
+
+        .footer-link {
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 30px;
+            color: var(--secondary-default);
+            text-decoration: none;
+            display: inline;
+            cursor: pointer;
+            word-wrap: break-word;
+        }
+
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive Design */
+        
+        /* Mobile-first: Base styles are for mobile */
+        /* Small mobile devices (up to 374px) */
+        @media (max-width: 374px) {
+            html {
+                overflow-x: hidden;
+            }
+
+            body {
+                transform: scale(0.9);
+                transform-origin: top center;
+                width: 100vw;
+                overflow-x: hidden;
+            }
+
+            .logo-title {
+                font-size: 20px;
+                line-height: 24px;
+            }
+
+            .auth-button {
+                font-size: 13px;
+                padding: 10px var(--spacing-m);
+            }
+
+            .footer-text,
+            .footer-link {
+                font-size: 16px;
+                line-height: 24px;
+            }
+
+            .mobile-input-wrapper {
+                padding: var(--spacing-xs) var(--spacing-sm);
+            }
+
+            .otp-input {
+                width: 48px;
+                height: 48px;
+                padding: 0;
+                font-size: 18px;
+                font-weight: 600;
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-sm);
+            }
+
+            .input-label {
+                font-size: 13px;
+                line-height: 20px;
+            }
+
+            .input-field,
+            .mobile-input-field {
+                padding: 12px var(--spacing-sm);
+                font-size: 16px;
+            }
+
+            .country-code-selector {
+                padding: 12px var(--spacing-xs);
+                min-width: 80px;
+            }
+
+            .country-code-text {
+                font-size: 11px;
+            }
+
+            .btn-primary {
+                padding: 12px var(--spacing-xs);
+                height: 48px;
+                font-size: 14px;
+                margin-top: var(--spacing-l);
+            }
+
+            .error-message,
+            .success-message {
+                font-size: 13px;
+                line-height: 18px;
+            }
+        }
+
+        /* Mobile devices (375px to 767px) */
+        @media (min-width: 375px) and (max-width: 767px) {
+            .container {
+                padding: 0;
+            }
+
+            .logo-section {
+                padding: 32px var(--spacing-m) 16px;
+            }
+
+            .social-auth-section {
+                padding: var(--spacing-m) var(--spacing-m);
+            }
+
+            .email-mobile-link-section {
+                padding: var(--spacing-m) var(--spacing-m);
+            }
+
+            .mobile-otp-section {
+                padding: 0 var(--spacing-m);
+            }
+
+            .button-container {
+                padding-top: var(--spacing-xl);
+                padding-bottom: var(--spacing-xl);
+            }
+
+            .button-container-send {
+                padding: 0;
+            }
+        }
+
+        /* Mobile-only optimizations */
+        @media (max-width: 767px) {
+            html {
+                overflow-x: hidden;
+            }
+
+            body {
+                min-height: 100vh;
+                min-height: -webkit-fill-available;
+                transform: scale(0.95);
+                transform-origin: top center;
+                width: 100vw;
+                overflow-x: hidden;
+            }
+
+            .container {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .logo-section {
+                padding: 32px var(--spacing-m) 16px;
+            }
+
+            .logo-title {
+                font-size: 22px;
+                line-height: 26px;
+            }
+
+            .social-auth-section {
+                padding: var(--spacing-m) var(--spacing-m);
+                gap: var(--spacing-sm);
+            }
+
+            .auth-button {
+                padding: 14px var(--spacing-m);
+                font-size: 14px;
+            }
+
+            .auth-button-icon {
+                width: 18px;
+                height: 18px;
+            }
+
+            .auth-note {
+                font-size: 13px;
+                line-height: 18px;
+            }
+
+            .divider-section {
+                padding: var(--spacing-sm) var(--spacing-m);
+                gap: var(--spacing-m);
+            }
+
+            .divider-text {
+                font-size: 13px;
+            }
+
+            .email-mobile-link {
+                font-size: 14px;
+            }
+
+            .mobile-input-wrapper {
+                height: auto;
+                min-height: 58px;
+                padding: var(--spacing-sm) var(--spacing-m);
+            }
+
+            .mobile-input-label {
+                font-size: 9px;
+            }
+
+            .mobile-input-number {
+                font-size: 16px;
+            }
+
+            .otp-label {
+                font-size: 13px;
+            }
+
+            .otp-input {
+                width: 52px;
+                height: 52px;
+                font-size: 20px;
+                font-weight: 600;
+            }
+
+            .btn-send-otp,
+            .btn-verify-otp {
+                padding: 14px var(--spacing-m);
+                font-size: 15px;
+            }
+
+            .form-section {
+                padding: var(--spacing-m) var(--spacing-m);
+                padding-bottom: max(24px, env(safe-area-inset-bottom));
+                border-radius: 16px 16px 0 0;
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-sm);
+            }
+
+            .form-group:last-of-type {
+                margin-bottom: var(--spacing-l);
+            }
+
+            .input-label {
+                font-size: 14px;
+                line-height: 22px;
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .input-field,
+            .mobile-input-field {
+                padding: 14px var(--spacing-m);
+                font-size: 16px;
+                line-height: 24px;
+                border-radius: 8px;
+            }
+
+            .mobile-input-container {
+                border-radius: 8px;
+            }
+
+            .country-code-selector {
+                padding: 14px var(--spacing-sm);
+                min-width: 90px;
+            }
+
+            .country-code-text {
+                font-size: 12px;
+            }
+
+            .country-flag {
+                font-size: 16px;
+            }
+
+            .btn-primary {
+                padding: 14px var(--spacing-sm);
+                height: 52px;
+                font-size: 15px;
+                margin-top: var(--spacing-xl);
+                margin-bottom: var(--spacing-m);
+                border-radius: 12px;
+            }
+
+            .error-message,
+            .success-message {
+                font-size: 14px;
+                line-height: 20px;
+                margin-bottom: var(--spacing-sm);
+                padding: 0 var(--spacing-xs);
+            }
+
+            .footer-text,
+            .footer-link {
+                font-size: 16px;
+                line-height: 24px;
+            }
+
+            .modal-content {
+                max-width: calc(100% - 32px);
+                margin: var(--spacing-m);
+            }
+
+            .modal-header {
+                padding: var(--spacing-sm) var(--spacing-m);
+            }
+
+            .modal-title {
+                font-size: 16px;
+            }
+        }
+
+        /* Tablet devices (768px to 1023px) */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .container {
+                max-width: 600px;
+                padding: 0;
+            }
+
+            .logo-section {
+                padding: 40px var(--spacing-xl) 20px;
+            }
+
+            .social-auth-section,
+            .email-mobile-link-section {
+                padding: var(--spacing-ml) var(--spacing-xl);
+            }
+
+            .mobile-otp-section {
+                padding: 0 var(--spacing-xl);
+            }
+
+            .mobile-input-wrapper {
+                min-height: 64px;
+                padding: var(--spacing-sm) var(--spacing-m);
+                gap: var(--spacing-xs);
+            }
+
+            .mobile-input-label {
+                font-size: 10px;
+                line-height: 14px;
+                margin-bottom: 0;
+            }
+
+            .mobile-input-row {
+                flex: 1;
+                min-height: 0;
+            }
+
+            .form-section {
+                padding: var(--spacing-xl);
+                border-radius: 16px 16px 0 0;
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-m);
+            }
+
+            .form-group:last-of-type {
+                margin-bottom: var(--spacing-xl);
+            }
+
+            .input-label {
+                font-size: 15px;
+                line-height: 24px;
+            }
+
+            .input-field,
+            .mobile-input-field {
+                padding: 13px var(--spacing-m);
+                font-size: 16px;
+            }
+
+            .country-code-selector {
+                padding: 13px var(--spacing-sm);
+                min-width: 95px;
+            }
+
+            .btn-primary {
+                padding: 13px var(--spacing-sm);
+                height: 50px;
+                font-size: 15px;
+            }
+
+            .otp-input {
+                width: 56px;
+                height: 56px;
+                font-size: 22px;
+            }
+
+            .button-container {
+                padding-top: var(--spacing-xxl);
+                padding-bottom: var(--spacing-xxl);
+            }
+
+            .button-container-send {
+                padding: 0;
+            }
+
+            .modal-content {
+                max-width: 450px;
+            }
+        }
+
+        /* Desktop devices (1024px and up) */
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 600px;
+                padding: 0;
+            }
+
+            .logo-section {
+                padding: 48px var(--spacing-xl) 24px;
+            }
+
+            .social-auth-section,
+            .email-mobile-link-section {
+                padding: var(--spacing-xl) var(--spacing-xl);
+            }
+
+            .mobile-otp-section {
+                padding: 0 var(--spacing-xl);
+                gap: var(--spacing-xxl);
+            }
+
+            .form-section {
+                padding: var(--spacing-xxl);
+                border-radius: 20px 20px 0 0;
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-m);
+            }
+
+            .form-group:last-of-type {
+                margin-bottom: var(--spacing-xl);
+            }
+
+            .input-label {
+                font-size: 16px;
+                line-height: 26px;
+            }
+
+            .input-field,
+            .mobile-input-field {
+                padding: 12px var(--spacing-m);
+                font-size: 16px;
+            }
+
+            .country-code-selector {
+                padding: 12px var(--spacing-sm);
+                min-width: 100px;
+            }
+
+            .btn-primary {
+                padding: 12px var(--spacing-sm);
+                height: 48px;
+                font-size: 14px;
+            }
+
+            .error-message,
+            .success-message {
+                font-size: 16px;
+                line-height: 24px;
+            }
+
+            .otp-input {
+                width: 58px;
+                height: 58px;
+                font-size: 24px;
+            }
+
+            .button-container {
+                padding-top: var(--spacing-xxxl);
+                padding-bottom: var(--spacing-xxxl);
+            }
+
+            .button-container-send {
+                padding: 0;
+            }
+
+            .auth-button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+
+            .btn-send-otp:hover:not(:disabled),
+            .btn-verify-otp:hover:not(:disabled),
+            .btn-primary:hover:not(:disabled) {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(59, 38, 140, 0.3);
+            }
+
+            .modal-content {
+                max-width: 500px;
+            }
+        }
+
+        /* Large desktop devices (1440px and up) */
+        @media (min-width: 1440px) {
+            .container {
+                max-width: 700px;
+            }
+
+            .logo-section {
+                padding: 56px var(--spacing-xxl) 32px;
+            }
+
+            .social-auth-section,
+            .email-mobile-link-section {
+                padding: var(--spacing-xxl) var(--spacing-xxl);
+            }
+
+            .mobile-otp-section {
+                padding: 0 var(--spacing-xxl);
+            }
+
+            .form-section {
+                padding: var(--spacing-xxxl) var(--spacing-xxl);
+            }
+        }
+
+        /* Landscape orientation adjustments */
+        @media (max-width: 767px) and (orientation: landscape) {
+            .logo-section {
+                padding: 20px var(--spacing-m) 12px;
+            }
+
+            .logo-title {
+                font-size: 20px;
+                line-height: 24px;
+            }
+
+            .social-auth-section {
+                padding: var(--spacing-sm) var(--spacing-m);
+                gap: var(--spacing-xs);
+            }
+
+            .mobile-otp-section {
+                gap: var(--spacing-m);
+            }
+
+            .button-container {
+                padding-top: var(--spacing-m);
+                padding-bottom: var(--spacing-m);
+            }
+
+            .button-container-send {
+                padding: 0;
+            }
+
+            .form-section {
+                padding: var(--spacing-sm) var(--spacing-m);
+            }
+
+            .form-group {
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .form-group:last-of-type {
+                margin-bottom: var(--spacing-sm);
+            }
+
+            .input-label {
+                font-size: 13px;
+                line-height: 20px;
+                margin-bottom: var(--spacing-xs);
+            }
+
+            .input-field,
+            .mobile-input-field {
+                padding: 10px var(--spacing-m);
+                font-size: 16px;
+            }
+
+            .btn-primary {
+                padding: 10px var(--spacing-sm);
+                height: 44px;
+                margin-top: var(--spacing-m);
+                margin-bottom: var(--spacing-sm);
+            }
+        }
+
+        /* Touch device optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            .auth-button,
+            .btn-send-otp,
+            .btn-verify-otp,
+            .btn-primary {
+                min-height: 48px;
+            }
+
+            .header-back {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            .country-code-selector {
+                min-height: 44px;
+            }
+
+            .input-field,
+            .mobile-input-field,
+            .mobile-input-number {
+                min-height: 48px;
+            }
+
+            .otp-input {
+                min-width: 48px;
+                min-height: 48px;
+            }
+        }
+
+        /* Prevent iOS zoom on input focus */
+        @media (max-width: 767px) {
+            .input-field,
+            .mobile-input-field,
+            .mobile-input-number,
+            .otp-input,
+            .modal-search-input {
+                font-size: 16px !important;
+            }
+        }
+
+        /* Safe area support for notched devices */
+        @supports (padding: max(0px)) {
+            @media (max-width: 767px) {
+                .logo-section {
+                    padding-left: max(var(--spacing-m), env(safe-area-inset-left));
+                    padding-right: max(var(--spacing-m), env(safe-area-inset-right));
+                }
+
+                .social-auth-section,
+                .email-mobile-link-section {
+                    padding-left: max(var(--spacing-m), env(safe-area-inset-left));
+                    padding-right: max(var(--spacing-m), env(safe-area-inset-right));
+                }
+
+                .form-section {
+                    padding-left: max(var(--spacing-m), env(safe-area-inset-left));
+                    padding-right: max(var(--spacing-m), env(safe-area-inset-right));
+                    padding-bottom: max(24px, env(safe-area-inset-bottom));
+                }
+
+                .mobile-otp-section,
+                .success-section {
+                    padding-left: max(var(--spacing-m), env(safe-area-inset-left));
+                    padding-right: max(var(--spacing-m), env(safe-area-inset-right));
+                }
+
+                .button-container {
+                    padding-bottom: max(var(--spacing-xxl), env(safe-area-inset-bottom));
+                }
+            }
+        }
+
+        /* High DPI displays */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .mobile-input-flag,
+            .auth-button-icon {
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <!-- <header class="header">
+        <button class="header-back" onclick="handleBack()" aria-label="Go back">
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <h1 class="header-title">Sign up</h1>
+    </header> -->
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Logo Section -->
+        <div id="logoSection" class="logo-section">
+            <h1 class="logo-title">Sali na sa Domo!</h1>
+        </div>
+
+        <!-- Social Auth Buttons Section -->
+        <div id="socialAuthButtonsSection" class="social-auth-section">
+            <button class="auth-button" onclick="handleGoogleSignup()">
+                <img src="google-icon.svg" alt="Google" class="auth-button-icon" />
+                <span>Direktang sign-up gamit Google</span>
+            </button>
+            <button class="auth-button" onclick="handleFacebookSignup()">
+                <img src="facebook-icon.svg" alt="Facebook" class="auth-button-icon" />
+                <span>Direktang sign-up gamit FB</span>
+            </button>
+            <button class="auth-button" onclick="handleAppleSignup()">
+                <img src="apple-icon.svg" alt="Apple" class="auth-button-icon" />
+                <span>Direktang sign-up gamit Apple</span>
+            </button>
+            <p class="auth-note">Paalala: Ito ang magiging account mo para makapag-login sa app.</p>
+        </div>
+
+        <!-- Or Divider -->
+        <div id="dividerSection" class="divider-section">
+            <div class="divider-line"></div>
+            <span class="divider-text">Or</span>
+            <div class="divider-line"></div>
+        </div>
+
+        <!-- Email/Mobile Link Section -->
+        <div id="emailMobileLinkSection" class="email-mobile-link-section">
+            <button class="email-mobile-link" onclick="showEmailMobileForm()">Gamitin email/mobile nalang</button>
+        </div>
+
+        <!-- Mobile OTP Section (Initially Hidden) -->
+        <div id="mobileOtpSection" class="mobile-otp-section">
+            <!-- Error Message -->
+            <div id="errorMessageOtp" class="error-message" role="alert"></div>
+
+            <!-- Success Message -->
+            <div id="successMessageOtp" class="success-message" role="status"></div>
+
+            <!-- Mobile Input -->
+            <div class="mobile-input-wrapper">
+                <label class="mobile-input-label">Mobile No.</label>
+                <div class="mobile-input-row">
+                    <img src="philippines-flag.svg" alt="Philippines" class="mobile-input-flag" id="mobileOtpFlag" />
+                    <input
+                        type="tel"
+                        id="mobileOtpInput"
+                        class="mobile-input-number"
+                        placeholder="912 345 6789"
+                        autocomplete="tel"
+                    />
+                </div>
+            </div>
+            <div class="button-container-send">
+                <button type="button" id="sendOtpButton" class="btn-send-otp" disabled>Send OTP</button>
+            </div>
+
+            <!-- OTP Input Section -->
+            <div class="otp-section">
+                <label class="otp-label">One time PIN:</label>
+                <div class="otp-inputs">
+                    <input type="text" id="otp1" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+                    <input type="text" id="otp2" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+                    <input type="text" id="otp3" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+                    <input type="text" id="otp4" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+                </div>
+            </div>
+
+            <!-- Verify OTP Button -->
+            <div class="button-container">
+                <button type="button" id="verifyOtpButton" class="btn-verify-otp" disabled>Verify OTP</button>
+            </div>
+        </div>
+
+        <!-- Form Section (Initially Hidden) -->
+        <div id="formSection" class="form-section">
+            <form id="signupForm" onsubmit="handleSignup(event)">
+                <!-- Name Field -->
+                <div class="form-group">
+                    <label for="name" class="input-label">How should we call you?</label>
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        class="input-field"
+                        placeholder="Enter your nickname"
+                        autocomplete="name"
+                        required
+                    />
+                </div>
+
+                <!-- Mobile Number Field -->
+                <div class="form-group">
+                    <label for="mobile" class="input-label">Mobile</label>
+                    <div class="mobile-input-container">
+                        <div class="country-code-selector" id="countrySelector" onclick="toggleCountryPicker()">
+                            <span class="country-flag" id="countryFlag">🇵🇭</span>
+                            <span class="country-code-text" id="countryCode">+63</span>
+                            <span class="country-dropdown-icon">▼</span>
+                        </div>
+                        <input
+                            type="tel"
+                            id="mobile"
+                            name="mobile"
+                            class="mobile-input-field"
+                            placeholder="Enter mobile number"
+                            autocomplete="tel"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <!-- Email Field (Optional) -->
+                <div class="form-group">
+                    <label for="email" class="input-label">Email</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        class="input-field"
+                        placeholder="hello@domo.ph"
+                        autocomplete="email"
+                    />
+                </div>
+
+                <!-- Password Field -->
+                <div class="form-group">
+                    <label for="password" class="input-label">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="input-field"
+                        placeholder="Enter your password"
+                        autocomplete="new-password"
+                        required
+                    />
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorMessage" class="error-message" role="alert"></div>
+
+                <!-- Success Message -->
+                <div id="successMessage" class="success-message" role="status"></div>
+
+                <!-- Create Account Button -->
+                <button type="submit" id="submitButton" class="btn-primary">
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <span class="footer-text">Already have an account? </span>
+                <a href="#" class="footer-link" onclick="handleSignIn(event)">Sign In</a>
+            </footer>
+        </div>
+
+        <!-- Social Auth Instructions Section (Initially Hidden) -->
+        <div id="socialAuthSection" class="social-auth-instructions-section">
+            <div class="social-auth-modal-body">
+                <div class="social-auth-icon-container">
+                    <img src="social-auth-icon.svg" alt="Social Auth" class="social-auth-icon" />
+                </div>
+                <div class="social-auth-text-container">
+                    <h2 class="social-auth-title">Direktang sign-up</h2>
+                    <p class="social-auth-description">
+                        1-tap sign-up sa loob ng app. Gamitin lang ang Continue with Google/Apple/FB.<br><br>
+                        Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
+                    </p>
+                    <div class="app-store-buttons">
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
+                            <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
+                        </a>
+                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
+                            <img src="google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Section (Initially Hidden) -->
+        <div id="successSection" class="success-section">
+            <div class="success-modal-body">
+                <div class="success-icon-container">
+                    <img src="assets/success-icon.svg" alt="Success" class="success-icon" />
+                </div>
+                <div class="success-text-container">
+                    <h2 class="success-title">Nakaregister na tayo!</h2>
+                    <p class="success-description">
+                        Susunod, i-dadownload natin ang app sa App Store.<br><br>
+                        Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
+                    </p>
+                    <div class="app-store-buttons">
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
+                            <img src="assets/app-store-button.png" alt="Download on App Store" class="app-store-button" />
+                        </a>
+                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
+                            <img src="assets/google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Country Picker Modal -->
+    <div id="countryModal" class="modal-overlay" onclick="closeCountryModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="modal-title">Select Country</h2>
+                <button class="modal-close" onclick="closeCountryModal()" aria-label="Close">×</button>
+            </div>
+            <div class="modal-search">
+                <input
+                    type="text"
+                    id="countrySearch"
+                    class="modal-search-input"
+                    placeholder="Search countries..."
+                    autocomplete="off"
+                />
+            </div>
+            <div class="modal-list" id="countryList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        // Set your Supabase URL and anon key here or via window globals
+        const SUPABASE_URL = window.SUPABASE_URL || 'https://vampznzoubbljcdadzoo.supabase.co';
+        window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhbXB6bnpvdWJibGpjZGFkem9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MzA4NTUsImV4cCI6MjA2NjMwNjg1NX0.WYloMLIileC4uv1Fb40AZdybUy2NRlGOyZac5PSTxBc';
+        
+        // Validate configuration on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!window.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY === 'your-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhbXB6bnpvdWJibGpjZGFkem9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MzA4NTUsImV4cCI6MjA2NjMwNjg1NX0.WYloMLIileC4uv1Fb40AZdybUy2NRlGOyZac5PSTxBc') {
+                console.error('Supabase anon key not configured. Please set window.SUPABASE_ANON_KEY');
+                const errorMsg = document.getElementById('errorMessage');
+                if (errorMsg) {
+                    errorMsg.textContent = 'Configuration error: Supabase anon key not set. Please contact support.';
+                    errorMsg.classList.add('show');
+                }
+            }
+        });
+        
+        // Supabase Edge Function endpoints
+        const SIGNUP_ENDPOINT = `${SUPABASE_URL}/functions/v1/signup-user`;
+        const SEND_VERIFICATION_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/send-verification-code`;
+        const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
+
+        // Form validation and state
+        const form = document.getElementById('signupForm');
+        const nameInput = document.getElementById('name');
+        const mobileInput = document.getElementById('mobile');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const submitButton = document.getElementById('submitButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const countryCodeText = document.getElementById('countryCode');
+        const countryFlag = document.getElementById('countryFlag');
+
+        // Country code selection (defaults to Philippines)
+        let selectedCountryCode = '+63';
+        let selectedCountryFlag = '🇵🇭';
+        let selectedCountryCode_iso = 'PH';
+
+        // Common countries list (matching React Native MobileInput)
+        const countries = [
+            { code: 'PH', name: 'Philippines', callingCode: '+63', flag: '🇵🇭' },
+            { code: 'US', name: 'United States', callingCode: '+1', flag: '🇺🇸' },
+            { code: 'GB', name: 'United Kingdom', callingCode: '+44', flag: '🇬🇧' },
+            { code: 'CA', name: 'Canada', callingCode: '+1', flag: '🇨🇦' },
+            { code: 'AU', name: 'Australia', callingCode: '+61', flag: '🇦🇺' },
+            { code: 'SG', name: 'Singapore', callingCode: '+65', flag: '🇸🇬' },
+            { code: 'MY', name: 'Malaysia', callingCode: '+60', flag: '🇲🇾' },
+            { code: 'JP', name: 'Japan', callingCode: '+81', flag: '🇯🇵' },
+            { code: 'KR', name: 'South Korea', callingCode: '+82', flag: '🇰🇷' },
+            { code: 'CN', name: 'China', callingCode: '+86', flag: '🇨🇳' },
+            { code: 'IN', name: 'India', callingCode: '+91', flag: '🇮🇳' },
+            { code: 'ID', name: 'Indonesia', callingCode: '+62', flag: '🇮🇩' },
+            { code: 'TH', name: 'Thailand', callingCode: '+66', flag: '🇹🇭' },
+            { code: 'VN', name: 'Vietnam', callingCode: '+84', flag: '🇻🇳' },
+            { code: 'HK', name: 'Hong Kong', callingCode: '+852', flag: '🇭🇰' },
+            { code: 'TW', name: 'Taiwan', callingCode: '+886', flag: '🇹🇼' },
+            { code: 'NZ', name: 'New Zealand', callingCode: '+64', flag: '🇳🇿' },
+            { code: 'DE', name: 'Germany', callingCode: '+49', flag: '🇩🇪' },
+            { code: 'FR', name: 'France', callingCode: '+33', flag: '🇫🇷' },
+            { code: 'IT', name: 'Italy', callingCode: '+39', flag: '🇮🇹' },
+            { code: 'ES', name: 'Spain', callingCode: '+34', flag: '🇪🇸' },
+            { code: 'NL', name: 'Netherlands', callingCode: '+31', flag: '🇳🇱' },
+            { code: 'BE', name: 'Belgium', callingCode: '+32', flag: '🇧🇪' },
+            { code: 'CH', name: 'Switzerland', callingCode: '+41', flag: '🇨🇭' },
+            { code: 'AT', name: 'Austria', callingCode: '+43', flag: '🇦🇹' },
+            { code: 'SE', name: 'Sweden', callingCode: '+46', flag: '🇸🇪' },
+            { code: 'NO', name: 'Norway', callingCode: '+47', flag: '🇳🇴' },
+            { code: 'DK', name: 'Denmark', callingCode: '+45', flag: '🇩🇰' },
+            { code: 'FI', name: 'Finland', callingCode: '+358', flag: '🇫🇮' },
+            { code: 'PL', name: 'Poland', callingCode: '+48', flag: '🇵🇱' },
+            { code: 'BR', name: 'Brazil', callingCode: '+55', flag: '🇧🇷' },
+            { code: 'MX', name: 'Mexico', callingCode: '+52', flag: '🇲🇽' },
+            { code: 'AR', name: 'Argentina', callingCode: '+54', flag: '🇦🇷' },
+            { code: 'ZA', name: 'South Africa', callingCode: '+27', flag: '🇿🇦' },
+            { code: 'AE', name: 'United Arab Emirates', callingCode: '+971', flag: '🇦🇪' },
+            { code: 'SA', name: 'Saudi Arabia', callingCode: '+966', flag: '🇸🇦' },
+        ];
+
+        // Validation functions
+        function validateEmail(email) {
+            if (!email) return true; // Email is optional
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function validatePassword(password) {
+            // Password must be at least 6 characters
+            return password.length >= 6;
+        }
+
+        function validateMobile(mobile, countryCode) {
+            const digits = mobile.replace(/\D/g, '');
+            if (countryCode === 'PH') {
+                // Philippines: should be 10 digits after removing leading zero
+                const processedDigits = digits.replace(/^0+/, '');
+                return processedDigits.length === 10;
+            }
+            // For other countries, require at least 5 digits
+            return digits.length >= 5;
+        }
+
+        // Update button state based on form validity
+        // Required fields: nickname, mobile number, and password
+        function updateButtonState() {
+            // Check if form is visible and inputs exist
+            const formSection = document.getElementById('formSection');
+            if (!formSection || !formSection.classList.contains('show')) {
+                return;
+            }
+            
+            if (!nameInput || !mobileInput || !passwordInput || !submitButton) {
+                return;
+            }
+
+            const name = nameInput.value.trim();
+            const mobile = mobileInput.value.trim();
+            const email = emailInput ? emailInput.value.trim() : '';
+            const password = passwordInput.value.trim();
+
+            const isFormValid = 
+                name && 
+                mobile && 
+                password &&
+                validatePassword(password) &&
+                validateEmail(email) &&
+                validateMobile(mobile, selectedCountryCode_iso);
+            
+            submitButton.disabled = !isFormValid;
+        }
+
+        // Add input listeners (only if inputs exist)
+        const formInputs = [nameInput, mobileInput, emailInput, passwordInput].filter(input => input !== null);
+        formInputs.forEach(input => {
+            input.addEventListener('input', updateButtonState);
+        });
+
+        // Country picker modal functions
+        function toggleCountryPicker() {
+            const modal = document.getElementById('countryModal');
+            const searchInput = document.getElementById('countrySearch');
+            modal.classList.add('show');
+            renderCountryList();
+            // Focus search input after modal opens
+            setTimeout(() => searchInput.focus(), 100);
+        }
+
+        function closeCountryModal(event) {
+            if (event && event.target.id !== 'countryModal') return;
+            const modal = document.getElementById('countryModal');
+            modal.classList.remove('show');
+            document.getElementById('countrySearch').value = '';
+        }
+
+        function selectCountry(country) {
+            selectedCountryCode = country.callingCode;
+            selectedCountryFlag = country.flag;
+            selectedCountryCode_iso = country.code;
+            
+            countryCodeText.textContent = country.callingCode;
+            countryFlag.textContent = country.flag;
+            
+            closeCountryModal();
+            updateButtonState();
+        }
+
+        function renderCountryList(searchTerm = '') {
+            const countryList = document.getElementById('countryList');
+            const filtered = countries.filter(country => {
+                const search = searchTerm.toLowerCase();
+                return country.name.toLowerCase().includes(search) ||
+                       country.callingCode.includes(search) ||
+                       country.code.toLowerCase().includes(search);
+            });
+
+            countryList.innerHTML = filtered.map(country => {
+                // Escape country object for safe HTML embedding
+                const countryData = JSON.stringify(country).replace(/"/g, '&quot;');
+                return `
+                    <div class="country-item" data-country-code="${country.code}">
+                        <span class="country-item-flag">${country.flag}</span>
+                        <div class="country-item-info">
+                            <span class="country-item-name">${country.name}</span>
+                            <span class="country-item-code">${country.callingCode}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Attach event listeners to country items
+            countryList.querySelectorAll('.country-item').forEach((item, index) => {
+                item.addEventListener('click', () => {
+                    selectCountry(filtered[index]);
+                });
+            });
+        }
+
+        // Country search handler - initialize after DOM is loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            const countrySearch = document.getElementById('countrySearch');
+            if (countrySearch) {
+                countrySearch.addEventListener('input', (e) => {
+                    renderCountryList(e.target.value);
+                });
+            }
+        });
+
+        // Show error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            successMessage.classList.remove('show');
+        }
+
+        // Hide error message
+        function hideError() {
+            errorMessage.classList.remove('show');
+            errorMessage.textContent = '';
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.add('show');
+            errorMessage.classList.remove('show');
+        }
+
+        // Hide success message
+        function hideSuccess() {
+            successMessage.classList.remove('show');
+            successMessage.textContent = '';
+        }
+
+        // Handle form submission
+        function handleSignup(event) {
+            event.preventDefault();
+            hideError();
+            hideSuccess();
+
+            const name = nameInput.value.trim();
+            const mobile = mobileInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            // Validate required fields: nickname, mobile number, and password
+            if (!name || !mobile || !password) {
+                showError('Please fill in all required fields (nickname, mobile number, and password)');
+                return;
+            }
+
+            // Validate email format if provided
+            if (email && !validateEmail(email)) {
+                showError('Please enter a valid email address');
+                return;
+            }
+
+            // Validate password strength
+            if (!validatePassword(password)) {
+                showError('Password must be at least 6 characters long');
+                return;
+            }
+
+            // Validate mobile number format
+            if (!validateMobile(mobile, selectedCountryCode_iso)) {
+                if (selectedCountryCode_iso === 'PH') {
+                    showError('Please enter a valid 10-digit Philippine mobile number');
+                } else {
+                    showError('Please enter a valid mobile number');
+                }
+                return;
+            }
+
+            // Format mobile number with country code
+            // For Philippines, remove leading zeros before concatenating
+            let mobileDigits = mobile.replace(/\D/g, ''); // Extract only digits
+            
+            if (selectedCountryCode_iso === 'PH') {
+                // Remove leading zeros for Philippines (like React Native does)
+                mobileDigits = mobileDigits.replace(/^0+/, '');
+            }
+            
+            const fullMobileNumber = selectedCountryCode + mobileDigits;
+
+            // Split full name into first and last name
+            const nameParts = name.split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+
+            // Disable button during submission
+            submitButton.disabled = true;
+            submitButton.textContent = 'Creating Account...';
+
+            // Call Supabase Edge Function
+            fetch(SIGNUP_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                    'apikey': window.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                    email: email || null,
+                    password: password,
+                    mobile_no: fullMobileNumber,
+                    full_name: name,
+                    first_name: firstName,
+                    last_name: lastName
+                })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || `Server error: ${response.status}`);
+                }
+                return data;
+            })
+            .then(data => {
+                if (data.success) {
+                    // Success - show success message and redirect
+                    showSuccess(data.message || 'Account created successfully! Redirecting to login...');
+                    // Redirect after a short delay to show success message
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
+                } else {
+                    // Show error message
+                    showError(data.error || 'Signup failed. Please try again.');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Create Account';
+                }
+            })
+            .catch(error => {
+                console.error('Signup error:', error);
+                showError(error.message || 'An unexpected error occurred. Please try again.');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Create Account';
+            });
+        }
+
+        // Handle back button
+        function handleBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Handle sign in link
+        function handleSignIn(event) {
+            event.preventDefault();
+            window.location.href = 'login.html';
+        }
+
+        // Show email/mobile form
+        function showEmailMobileForm() {
+            // Hide initial sections
+            const logoSection = document.getElementById('logoSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const socialAuthSection = document.getElementById('socialAuthSection');
+            const successSection = document.getElementById('successSection');
+            
+            // Hide all initial content
+            if (logoSection) logoSection.style.display = 'none';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.display = 'none';
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (socialAuthSection) socialAuthSection.classList.remove('show');
+            if (successSection) successSection.classList.remove('show');
+            
+            // Update title
+            if (logoSection) {
+                logoSection.querySelector('.logo-title').textContent = 'Anong ginagamit mong mobile number?';
+                logoSection.style.display = 'flex';
+            }
+            
+            // Show mobile OTP section
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.add('show');
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            
+            // Initialize mobile OTP functionality
+            initializeMobileOtp();
+        }
+
+        // Initialize mobile OTP functionality
+        let mobileOtpInitialized = false;
+        function initializeMobileOtp() {
+            // Prevent duplicate initialization
+            if (mobileOtpInitialized) return;
+            mobileOtpInitialized = true;
+
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+
+            // Mobile input validation
+            if (mobileOtpInput && sendOtpButton) {
+                mobileOtpInput.addEventListener('input', () => {
+                    const mobile = mobileOtpInput.value.trim();
+                    const digits = mobile.replace(/\D/g, '');
+                    const processedDigits = digits.replace(/^0+/, '');
+                    const isValid = processedDigits.length === 10;
+                    sendOtpButton.disabled = !isValid;
+                });
+            }
+
+            // OTP input handling - auto-focus next
+            otpInputs.forEach((input, index) => {
+                if (!input) return;
+                
+                input.addEventListener('input', (e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    e.target.value = value.slice(0, 1);
+                    
+                    // Move to next input if value entered
+                    if (value && index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                    
+                    updateVerifyButtonState();
+                });
+
+                input.addEventListener('keydown', (e) => {
+                    // Move to previous input on backspace if empty
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        otpInputs[index - 1].focus();
+                    }
+                });
+
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+                    pastedData.split('').forEach((char, i) => {
+                        if (otpInputs[index + i]) {
+                            otpInputs[index + i].value = char;
+                        }
+                    });
+                    updateVerifyButtonState();
+                    // Focus last input if all filled
+                    if (pastedData.length === 4) {
+                        otpInputs[3].focus();
+                    }
+                });
+            });
+
+            // Update verify button state
+            function updateVerifyButtonState() {
+                if (!verifyOtpButton) return;
+                const allFilled = otpInputs.every(input => input && input.value.length === 1);
+                verifyOtpButton.disabled = !allFilled;
+            }
+
+            // Send OTP handler
+            if (sendOtpButton) {
+                sendOtpButton.addEventListener('click', handleSendOtp);
+            }
+
+            // Verify OTP handler
+            if (verifyOtpButton) {
+                verifyOtpButton.addEventListener('click', handleVerifyOtp);
+            }
+        }
+
+        // Show error message (for OTP section)
+        function showErrorOtp(message) {
+            const errorMessage = document.getElementById('errorMessageOtp');
+            const successMessage = document.getElementById('successMessageOtp');
+            if (errorMessage) {
+                errorMessage.textContent = message;
+                errorMessage.classList.add('show');
+            }
+            if (successMessage) {
+                successMessage.classList.remove('show');
+            }
+        }
+
+        // Show success message (for OTP section)
+        function showSuccessOtp(message) {
+            const successMessage = document.getElementById('successMessageOtp');
+            const errorMessage = document.getElementById('errorMessageOtp');
+            if (successMessage) {
+                successMessage.textContent = message;
+                successMessage.classList.add('show');
+            }
+            if (errorMessage) {
+                errorMessage.classList.remove('show');
+            }
+        }
+
+        // Handle Send OTP
+        function handleSendOtp() {
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            if (!mobileOtpInput) return;
+
+            const mobile = mobileOtpInput.value.trim();
+            const digits = mobile.replace(/\D/g, '');
+            const processedDigits = digits.replace(/^0+/, '');
+            
+            if (processedDigits.length !== 10) {
+                showErrorOtp('Please enter a valid 10-digit Philippine mobile number');
+                return;
+            }
+
+            const fullMobileNumber = '+63' + processedDigits;
+            
+            // Disable button during request
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            if (sendOtpButton) {
+                sendOtpButton.disabled = true;
+                sendOtpButton.textContent = 'Sending...';
+            }
+
+            // Call Supabase Edge Function to send OTP
+            fetch(SEND_VERIFICATION_CODE_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                    'apikey': window.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                    mobile_number: fullMobileNumber
+                })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || `Server error: ${response.status}`);
+                }
+                return data;
+            })
+            .then(data => {
+                if (sendOtpButton) {
+                    sendOtpButton.disabled = false;
+                    sendOtpButton.textContent = 'Send OTP';
+                }
+                showSuccessOtp(data.message || 'OTP sent successfully!');
+                // Focus first OTP input
+                const otp1 = document.getElementById('otp1');
+                if (otp1) otp1.focus();
+            })
+            .catch(error => {
+                console.error('Send OTP error:', error);
+                if (sendOtpButton) {
+                    sendOtpButton.disabled = false;
+                    sendOtpButton.textContent = 'Send OTP';
+                }
+                showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+            });
+        }
+
+        // Handle Verify OTP
+        function handleVerifyOtp() {
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+            const otp = otpInputs.map(input => input ? input.value : '').join('');
+            
+            if (otp.length !== 4) {
+                showErrorOtp('Please enter the complete OTP');
+                return;
+            }
+
+            // Get mobile number from input
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            if (!mobileOtpInput) {
+                showErrorOtp('Mobile number not found');
+                return;
+            }
+
+            const mobile = mobileOtpInput.value.trim();
+            const digits = mobile.replace(/\D/g, '');
+            const processedDigits = digits.replace(/^0+/, '');
+            const fullMobileNumber = '+63' + processedDigits;
+
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            if (verifyOtpButton) {
+                verifyOtpButton.disabled = true;
+                verifyOtpButton.textContent = 'Verifying...';
+            }
+
+            // Call Supabase Edge Function to verify OTP
+            fetch(VERIFY_CODE_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                    'apikey': window.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                    mobile_number: fullMobileNumber,
+                    code: otp
+                })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || `Server error: ${response.status}`);
+                }
+                return data;
+            })
+            .then(data => {
+                if (verifyOtpButton) {
+                    verifyOtpButton.disabled = false;
+                    verifyOtpButton.textContent = 'Verify OTP';
+                }
+                // On success, show success screen
+                showSuccessScreen();
+            })
+            .catch(error => {
+                console.error('Verify OTP error:', error);
+                if (verifyOtpButton) {
+                    verifyOtpButton.disabled = false;
+                    verifyOtpButton.textContent = 'Verify OTP';
+                }
+                showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
+            });
+        }
+
+        // Social auth handlers - show instructions section
+        function handleGoogleSignup() {
+            showSocialAuthInstructions();
+        }
+
+        function handleFacebookSignup() {
+            showSocialAuthInstructions();
+        }
+
+        function handleAppleSignup() {
+            showSocialAuthInstructions();
+        }
+
+        // Show social auth instructions section (same pattern as showEmailMobileForm)
+        function showSocialAuthInstructions() {
+            // Hide initial sections
+            const logoSection = document.getElementById('logoSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const socialAuthSection = document.getElementById('socialAuthSection');
+            const successSection = document.getElementById('successSection');
+            
+            // Hide all initial content
+            if (logoSection) logoSection.style.display = 'none';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.display = 'none';
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (mobileOtpSection) mobileOtpSection.classList.remove('show');
+            if (successSection) successSection.classList.remove('show');
+            
+            // Show social auth instructions section
+            if (socialAuthSection) {
+                socialAuthSection.classList.add('show');
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Show success screen after OTP verification (same pattern as showSocialAuthInstructions)
+        function showSuccessScreen() {
+            // Hide all sections
+            const logoSection = document.getElementById('logoSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const socialAuthSection = document.getElementById('socialAuthSection');
+            const successSection = document.getElementById('successSection');
+            
+            // Hide all content
+            if (logoSection) logoSection.style.display = 'none';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.display = 'none';
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (mobileOtpSection) mobileOtpSection.classList.remove('show');
+            if (socialAuthSection) socialAuthSection.classList.remove('show');
+            
+            // Show success section
+            if (successSection) {
+                successSection.classList.add('show');
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Device detection function (same as getdomo.html)
+        function detectDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            
+            // Check for Android
+            if (userAgent.includes('android')) {
+                return 'android';
+            }
+            
+            // Check for iOS (iPhone, iPad, iPod)
+            if (/iphone|ipad|ipod/.test(userAgent)) {
+                return 'ios';
+            }
+            
+            // Check for other mobile devices
+            if (/mobile|tablet/.test(userAgent)) {
+                return 'mobile';
+            }
+            
+            return 'desktop';
+        }
+
+        // Apply device detection to app store buttons
+        function applyDeviceDetection() {
+            const device = detectDevice();
+            const body = document.body;
+            
+            // Remove existing device classes
+            body.classList.remove('device-android', 'device-ios', 'device-mobile', 'device-desktop');
+            
+            // Add device-specific class
+            body.classList.add(`device-${device}`);
+        }
+
+        // Initialize device detection on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            applyDeviceDetection();
+        });
+
+        // Form initialization happens when showEmailMobileForm() is called
+
+        // Handle Escape key to close modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const countryModal = document.getElementById('countryModal');
+                
+                if (countryModal && countryModal.classList.contains('show')) {
+                    closeCountryModal();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
