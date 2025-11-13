@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,7 +32,7 @@
             --text-disabled: #CDCCD1;
             --neutral-300: #B5B3BC;
             --surface-disabled-dark: #C2C1C8;
-            
+
             /* Spacing */
             --spacing-xs: 2px;
             --spacing-s: 4px;
@@ -747,6 +748,7 @@
 
         /* Responsive styles for social auth instructions and success section */
         @media (max-width: 767px) {
+
             .social-auth-instructions-section,
             .success-section {
                 padding: var(--spacing-m);
@@ -788,6 +790,7 @@
         }
 
         @media (min-width: 768px) and (max-width: 1023px) {
+
             .social-auth-instructions-section,
             .success-section {
                 padding: var(--spacing-xl);
@@ -805,6 +808,7 @@
         }
 
         @media (min-width: 1024px) {
+
             .social-auth-instructions-section,
             .success-section {
                 padding: var(--spacing-xxl);
@@ -1000,7 +1004,7 @@
         }
 
         /* Responsive Design */
-        
+
         /* Mobile-first: Base styles are for mobile */
         /* Small mobile devices (up to 374px) */
         @media (max-width: 374px) {
@@ -1551,6 +1555,7 @@
 
         /* Touch device optimizations */
         @media (hover: none) and (pointer: coarse) {
+
             .auth-button,
             .btn-send-otp,
             .btn-verify-otp,
@@ -1579,6 +1584,7 @@
 
         /* Prevent iOS zoom on input focus */
         @media (max-width: 767px) {
+
             .input-field,
             .otp-input,
             .modal-search-input {
@@ -1619,7 +1625,9 @@
         }
 
         /* High DPI displays */
-        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+        @media (-webkit-min-device-pixel-ratio: 2),
+        (min-resolution: 192dpi) {
+
             .mobile-input-flag,
             .auth-button-icon {
                 image-rendering: -webkit-optimize-contrast;
@@ -1628,6 +1636,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Header -->
     <!-- <header class="header">
@@ -1688,18 +1697,15 @@
                 <div class="mobile-input-container">
                     <label class="mobile-input-inline-label" for="mobileOtpInput">Mobile No.</label>
                     <div class="mobile-input-row">
-                        <button type="button" class="country-code-selector" id="countrySelectorOtp" onclick="toggleCountryPicker()">
-                            <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag" id="mobileOtpFlagImg" />
+                        <button type="button" class="country-code-selector" id="countrySelectorOtp"
+                            onclick="toggleCountryPicker()">
+                            <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag"
+                                id="mobileOtpFlagImg" />
                             <span class="country-code-text" id="mobileOtpCode">+63</span>
                             <span class="country-dropdown-icon">▼</span>
                         </button>
-                        <input
-                            type="tel"
-                            id="mobileOtpInput"
-                            class="mobile-input-number"
-                            placeholder="912 345 6789"
-                            autocomplete="tel"
-                        />
+                        <input type="tel" id="mobileOtpInput" class="mobile-input-number" placeholder="912 345 6789"
+                            autocomplete="tel" />
                     </div>
                 </div>
             </div>
@@ -1711,10 +1717,14 @@
             <div class="otp-section">
                 <label class="otp-label">One time PIN:</label>
                 <div class="otp-inputs">
-                    <input type="text" id="otp1" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
-                    <input type="text" id="otp2" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
-                    <input type="text" id="otp3" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
-                    <input type="text" id="otp4" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code" />
+                    <input type="text" id="otp1" class="otp-input" maxlength="1" inputmode="numeric"
+                        autocomplete="one-time-code" />
+                    <input type="text" id="otp2" class="otp-input" maxlength="1" inputmode="numeric"
+                        autocomplete="one-time-code" />
+                    <input type="text" id="otp3" class="otp-input" maxlength="1" inputmode="numeric"
+                        autocomplete="one-time-code" />
+                    <input type="text" id="otp4" class="otp-input" maxlength="1" inputmode="numeric"
+                        autocomplete="one-time-code" />
                 </div>
             </div>
 
@@ -1732,20 +1742,15 @@
                     <div class="mobile-input-container">
                         <label for="mobile" class="mobile-input-inline-label">Email or mobile</label>
                         <div class="mobile-input-row">
-                            <button type="button" class="country-code-selector" id="countrySelector" onclick="toggleCountryPicker()">
-                                <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag" id="countryFlagImg" />
+                            <button type="button" class="country-code-selector" id="countrySelector"
+                                onclick="toggleCountryPicker()">
+                                <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag"
+                                    id="countryFlagImg" />
                                 <span class="country-code-text" id="countryCode">+63</span>
                                 <span class="country-dropdown-icon">▼</span>
                             </button>
-                            <input
-                                type="text"
-                                id="mobile"
-                                name="mobile"
-                                class="mobile-input-field"
-                                placeholder="917 123 4567"
-                                autocomplete="username"
-                                required
-                            />
+                            <input type="text" id="mobile" name="mobile" class="mobile-input-field"
+                                placeholder="917 123 4567" autocomplete="username" required />
                         </div>
                     </div>
                 </div>
@@ -1755,15 +1760,8 @@
                     <div class="mobile-input-container">
                         <label for="password" class="mobile-input-inline-label">Gumawa ng password</label>
                         <div class="mobile-input-row">
-                            <input
-                                type="password"
-                                id="password"
-                                name="password"
-                                class="mobile-input-field"
-                                placeholder="●●●●●●"
-                                autocomplete="new-password"
-                                required
-                            />
+                            <input type="password" id="password" name="password" class="mobile-input-field"
+                                placeholder="●●●●●●" autocomplete="new-password" required />
                         </div>
                     </div>
                 </div>
@@ -1787,12 +1785,13 @@
                 <button type="submit" id="submitButton" class="btn-primary" form="signupForm">
                     Sumali na
                 </button>
-            <!-- Footer -->
-            <footer class="footer">
+                <!-- Footer -->
+                <footer class="footer">
                     <span class="footer-text">
-                        <a href="#" class="footer-link" id="backToMainButton" onclick="showMainContent(); return false;">Iba pang paraan sa sign-up</a>
+                        <a href="#" class="footer-link" id="backToMainButton"
+                            onclick="showMainContent(); return false;">Iba pang paraan sa sign-up</a>
                     </span>
-            </footer>
+                </footer>
             </div>
         </div>
 
@@ -1806,13 +1805,16 @@
                     <h2 class="social-auth-title">Direktang sign-up</h2>
                     <p class="social-auth-description">
                         1-tap sign-up sa loob ng app. Gamitin lang ang Continue with Google/Apple/FB.<br><br>
-                        Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
+                        Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap
+                        lang sa button sa baba.
                     </p>
                     <div class="app-store-buttons">
-                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375"
+                            target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
                             <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
                         </a>
-                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
+                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank"
+                            rel="noopener noreferrer" class="app-store-link android-only">
                             <img src="google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
                         </a>
                     </div>
@@ -1829,14 +1831,16 @@
                 <div class="success-text-container">
                     <h2 class="success-title">Nakaregister na tayo!</h2>
                     <p class="success-description">
-                        Susunod, i-dadownload natin ang app sa App Store.<br><br>
-                        Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
+                        Pwede mo na i-download ang app at mag-login gamit ang account mo.<br><br>
+                        I-tap ang button sa baba para i-download ang app.
                     </p>
                     <div class="app-store-buttons">
-                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
+                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank"
+                            rel="noopener noreferrer" class="app-store-link android-only">
                             <img src="google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
                         </a>
-                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link">
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375"
+                            target="_blank" rel="noopener noreferrer" class="app-store-link">
                             <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
                         </a>
                     </div>
@@ -1853,13 +1857,8 @@
                 <button class="modal-close" onclick="closeCountryModal()" aria-label="Close">×</button>
             </div>
             <div class="modal-search">
-                <input
-                    type="text"
-                    id="countrySearch"
-                    class="modal-search-input"
-                    placeholder="Search countries..."
-                    autocomplete="off"
-                />
+                <input type="text" id="countrySearch" class="modal-search-input" placeholder="Search countries..."
+                    autocomplete="off" />
             </div>
             <div class="modal-list" id="countryList"></div>
         </div>
@@ -1873,7 +1872,7 @@
         // Set your Supabase URL and anon key here or via window globals
         const SUPABASE_URL = window.SUPABASE_URL || 'https://vampznzoubbljcdadzoo.supabase.co';
         window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhbXB6bnpvdWJibGpjZGFkem9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MzA4NTUsImV4cCI6MjA2NjMwNjg1NX0.WYloMLIileC4uv1Fb40AZdybUy2NRlGOyZac5PSTxBc';
-        
+
         // Validate configuration on page load
         window.addEventListener('DOMContentLoaded', () => {
             if (!window.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY === 'your-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhbXB6bnpvdWJibGpjZGFkem9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MzA4NTUsImV4cCI6MjA2NjMwNjg1NX0.WYloMLIileC4uv1Fb40AZdybUy2NRlGOyZac5PSTxBc') {
@@ -1885,13 +1884,13 @@
                 }
             }
         });
-        
+
         // Supabase Edge Function endpoints
         const SIGNUP_ENDPOINT = `${SUPABASE_URL}/functions/v1/signup-user`;
         const SEND_VERIFICATION_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/send-verification-code`;
         const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
 
-        try { console.log('Signup script initialized'); } catch (_) {}
+        try { console.log('Signup script initialized'); } catch (_) { }
 
         // Form validation and state
         const form = document.getElementById('signupForm');
@@ -2031,7 +2030,7 @@
             if (!formSection || !formSection.classList.contains('show')) {
                 return;
             }
-            
+
             if (!mobileInput || !passwordInput || !submitButton) {
                 return;
             }
@@ -2053,13 +2052,13 @@
                 identifierValid = validateMobile(identifier, selectedCountryCode_iso);
             }
 
-            const isFormValid = 
-                identifier && 
+            const isFormValid =
+                identifier &&
                 password &&
                 validatePassword(password) &&
                 (email ? validateEmail(email) : true) &&
                 identifierValid;
-            
+
             submitButton.disabled = !isFormValid;
         }
 
@@ -2096,7 +2095,7 @@
 
         // Country picker modal functions
         function toggleCountryPicker() {
-            try { console.log('Opening country picker'); } catch (_) {}
+            try { console.log('Opening country picker'); } catch (_) { }
             const modal = document.getElementById('countryModal');
             const searchInput = document.getElementById('countrySearch');
             if (!modal) {
@@ -2107,8 +2106,8 @@
             renderCountryList();
             // Focus search input after modal opens
             if (searchInput && searchInput.focus) {
-            setTimeout(() => searchInput.focus(), 100);
-        }
+                setTimeout(() => searchInput.focus(), 100);
+            }
             // a11y state
             if (countrySelector) countrySelector.setAttribute('aria-expanded', 'true');
         }
@@ -2130,7 +2129,7 @@
             selectedCountryCode = country.callingCode;
             selectedCountryFlag = country.flag;
             selectedCountryCode_iso = country.code;
-            
+
             countryCodeText.textContent = country.callingCode;
             if (countryFlagImg) {
                 countryFlagImg.src = getFlagImageSrc(selectedCountryCode_iso);
@@ -2144,7 +2143,7 @@
                 mobileOtpFlagImg.src = getFlagImageSrc(selectedCountryCode_iso);
                 mobileOtpFlagImg.alt = country.name;
             }
-            
+
             closeCountryModal();
             updateButtonState();
         }
@@ -2154,8 +2153,8 @@
             const filtered = countries.filter(country => {
                 const search = searchTerm.toLowerCase();
                 return country.name.toLowerCase().includes(search) ||
-                       country.callingCode.includes(search) ||
-                       country.code.toLowerCase().includes(search);
+                    country.callingCode.includes(search) ||
+                    country.code.toLowerCase().includes(search);
             });
 
             countryList.innerHTML = filtered.map(country => {
@@ -2381,7 +2380,7 @@
             const formSection = document.getElementById('formSection');
             const socialAuthSection = document.getElementById('socialAuthSection');
             const successSection = document.getElementById('successSection');
-            
+
             // Hide all initial content except logo
             if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
             if (dividerSection) dividerSection.style.display = 'none';
@@ -2392,12 +2391,12 @@
             }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
             if (successSection) successSection.classList.remove('show');
-            
+
             // Keep logo section visible
             if (logoSection) {
                 logoSection.style.display = 'flex';
             }
-            
+
             // Show form section
             if (formSection) {
                 formSection.classList.add('show');
@@ -2531,16 +2530,16 @@
             // OTP input handling - auto-focus next
             otpInputs.forEach((input, index) => {
                 if (!input) return;
-                
+
                 input.addEventListener('input', (e) => {
                     const value = e.target.value.replace(/\D/g, '');
                     e.target.value = value.slice(0, 1);
-                    
+
                     // Move to next input if value entered
                     if (value && index < otpInputs.length - 1) {
                         otpInputs[index + 1].focus();
                     }
-                    
+
                     updateVerifyButtonState();
                 });
 
@@ -2669,7 +2668,7 @@
             const mobile = mobileOtpInput.value.trim();
             const digits = mobile.replace(/\D/g, '');
             const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
-            
+
             if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
                 (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
                 showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
@@ -2677,7 +2676,7 @@
             }
 
             const fullMobileNumber = selectedCountryCode + processedDigits;
-            
+
             // Disable button during request
             const sendOtpButton = document.getElementById('sendOtpButton');
             if (sendOtpButton) {
@@ -2697,36 +2696,36 @@
                     mobile_number: fullMobileNumber
                 })
             })
-            .then(async response => {
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.error || data.message || `Server error: ${response.status}`);
-                }
-                return data;
-            })
-            .then(data => {
-                showSuccessOtp(data.message || 'OTP sent successfully!');
-                // Start countdown timer
-                startOtpCountdown();
-                // Focus first OTP input
-                const otp1 = document.getElementById('otp1');
-                if (otp1) otp1.focus();
-            })
-            .catch(error => {
-                console.error('Send OTP error:', error);
-                if (sendOtpButton) {
-                    sendOtpButton.disabled = false;
-                    sendOtpButton.textContent = 'Send OTP';
-                }
-                showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
-            });
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || data.message || `Server error: ${response.status}`);
+                    }
+                    return data;
+                })
+                .then(data => {
+                    showSuccessOtp(data.message || 'OTP sent successfully!');
+                    // Start countdown timer
+                    startOtpCountdown();
+                    // Focus first OTP input
+                    const otp1 = document.getElementById('otp1');
+                    if (otp1) otp1.focus();
+                })
+                .catch(error => {
+                    console.error('Send OTP error:', error);
+                    if (sendOtpButton) {
+                        sendOtpButton.disabled = false;
+                        sendOtpButton.textContent = 'Send OTP';
+                    }
+                    showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+                });
         }
 
         // Handle Verify OTP
         function handleVerifyOtp() {
             const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
             const otp = otpInputs.map(input => input ? input.value : '').join('');
-            
+
             if (otp.length !== 4) {
                 showErrorOtp('Please enter the complete OTP');
                 return;
@@ -2768,66 +2767,66 @@
                     code: otp
                 })
             })
-            .then(async response => {
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.error || data.message || `Server error: ${response.status}`);
-                }
-                return data;
-            })
-            .then((verifyResponse) => {
-                // Manual signup path only (provider signup no longer uses OTP)
-                if (!pendingSignupData) {
-                    throw new Error('Signup data missing after OTP verification.');
-                }
-
-                const signupPayload = {
-                    email: pendingSignupData.email,
-                    password: pendingSignupData.password,
-                    mobile_no: pendingSignupData.mobileE164,
-                    full_name: 'Kas User',
-                    first_name: 'Kas',
-                    last_name: 'User'
-                };
-
-                return fetch(SIGNUP_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                        'apikey': window.SUPABASE_ANON_KEY
-                    },
-                    body: JSON.stringify(signupPayload)
-                }).then(async response => {
+                .then(async response => {
                     const data = await response.json();
                     if (!response.ok) {
-                        throw new Error(data.error || data.message || `Signup failed: ${response.status}`);
+                        throw new Error(data.error || data.message || `Server error: ${response.status}`);
                     }
-                    console.log('Signup inputs captured:', {
-                        ...pendingSignupData,
-                        otp
-                    });
-                    pendingSignupData = null;
                     return data;
+                })
+                .then((verifyResponse) => {
+                    // Manual signup path only (provider signup no longer uses OTP)
+                    if (!pendingSignupData) {
+                        throw new Error('Signup data missing after OTP verification.');
+                    }
+
+                    const signupPayload = {
+                        email: pendingSignupData.email,
+                        password: pendingSignupData.password,
+                        mobile_no: pendingSignupData.mobileE164,
+                        full_name: 'Kas User',
+                        first_name: 'Kas',
+                        last_name: 'User'
+                    };
+
+                    return fetch(SIGNUP_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                            'apikey': window.SUPABASE_ANON_KEY
+                        },
+                        body: JSON.stringify(signupPayload)
+                    }).then(async response => {
+                        const data = await response.json();
+                        if (!response.ok) {
+                            throw new Error(data.error || data.message || `Signup failed: ${response.status}`);
+                        }
+                        console.log('Signup inputs captured:', {
+                            ...pendingSignupData,
+                            otp
+                        });
+                        pendingSignupData = null;
+                        return data;
+                    });
+                })
+                .then(() => {
+                    // Only reset button and show success for email/password flow
+                    // Provider flow will redirect before reaching here
+                    if (verifyOtpButton) {
+                        verifyOtpButton.disabled = false;
+                        verifyOtpButton.textContent = 'Verify OTP';
+                    }
+                    showSuccessScreen();
+                })
+                .catch(error => {
+                    console.error('Verify OTP error:', error);
+                    if (verifyOtpButton) {
+                        verifyOtpButton.disabled = false;
+                        verifyOtpButton.textContent = 'Verify OTP';
+                    }
+                    showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
                 });
-            })
-            .then(() => {
-                // Only reset button and show success for email/password flow
-                // Provider flow will redirect before reaching here
-                if (verifyOtpButton) {
-                    verifyOtpButton.disabled = false;
-                    verifyOtpButton.textContent = 'Verify OTP';
-                }
-                showSuccessScreen();
-            })
-            .catch(error => {
-                console.error('Verify OTP error:', error);
-                if (verifyOtpButton) {
-                    verifyOtpButton.disabled = false;
-                    verifyOtpButton.textContent = 'Verify OTP';
-                }
-                showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
-            });
         }
 
         // Provider OAuth (web) using Supabase
@@ -2862,27 +2861,27 @@
                 showError('Unable to initialize authentication. Please try again later.');
                 return;
             }
-            
+
             // Disable provider buttons during OAuth
             setProviderButtonsDisabled(true, `Opening ${provider}...`);
-            
+
             // Build web redirect URL - ensure it's HTTPS and properly formatted
             let redirectTo = window.location.origin + window.location.pathname;
-            
+
             // Remove trailing slash if present
             redirectTo = redirectTo.replace(/\/$/, '');
-            
+
             // Ensure HTTPS (required for OAuth redirects)
             if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
                 console.warn('OAuth requires HTTPS. Current protocol:', window.location.protocol);
             }
-            
+
             // Log for debugging
             console.log('OAuth redirect URL:', redirectTo);
-            
+
             supabaseClient.auth.signInWithOAuth({
                 provider: provider,
-                options: { 
+                options: {
                     redirectTo: redirectTo,
                     queryParams: {
                         // Explicitly indicate this is a web flow
@@ -2907,7 +2906,7 @@
                 showError(error.message || 'Could not open provider sign in. Please try again.');
             });
         }
-        
+
         // Expose globally for inline onclick
         window.beginProviderSignupWithOtp = beginProviderSignupWithOtp;
 
@@ -2943,7 +2942,7 @@
             const mobileOtpSection = document.getElementById('mobileOtpSection');
             const socialAuthSection = document.getElementById('socialAuthSection');
             const successSection = document.getElementById('successSection');
-            
+
             // Hide all content
             if (logoSection) logoSection.style.display = 'none';
             if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
@@ -2954,10 +2953,10 @@
                 mobileOtpSection.style.display = 'none';
             }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
-            
+
             // Stop countdown timer when hiding OTP section
             stopOtpCountdown();
-            
+
             // Show success section
             if (successSection) {
                 successSection.classList.add('show');
@@ -2967,7 +2966,7 @@
                 const titleEl = successSection.querySelector('.success-title');
                 if (titleEl) {
                     titleEl.setAttribute('tabindex', '-1');
-                    try { titleEl.focus(); } catch (e) {}
+                    try { titleEl.focus(); } catch (e) { }
                 }
             }
         }
@@ -2975,22 +2974,22 @@
         // Device detection function (same as getdomo.html)
         function detectDevice() {
             const userAgent = navigator.userAgent.toLowerCase();
-            
+
             // Check for Android
             if (userAgent.includes('android')) {
                 return 'android';
             }
-            
+
             // Check for iOS (iPhone, iPad, iPod)
             if (/iphone|ipad|ipod/.test(userAgent)) {
                 return 'ios';
             }
-            
+
             // Check for other mobile devices
             if (/mobile|tablet/.test(userAgent)) {
                 return 'mobile';
             }
-            
+
             return 'desktop';
         }
 
@@ -3011,10 +3010,10 @@
         function applyDeviceDetection() {
             const device = detectDevice();
             const body = document.body;
-            
+
             // Remove existing device classes
             body.classList.remove('device-android', 'device-ios', 'device-mobile', 'device-desktop');
-            
+
             // Add device-specific class
             body.classList.add(`device-${device}`);
         }
@@ -3032,7 +3031,7 @@
                 const params = new URLSearchParams(hash);
                 const accessToken = params.get('access_token');
                 const refreshToken = params.get('refresh_token');
-                
+
                 if (accessToken && refreshToken) {
                     return {
                         access_token: accessToken,
@@ -3042,13 +3041,13 @@
                     };
                 }
             }
-            
+
             // Check if current URL contains OAuth tokens (fallback for failed deeplink redirects)
             // Sometimes browsers might preserve tokens in the URL even after failed deeplink attempts
             const fullUrl = window.location.href;
             const tokenMatch = fullUrl.match(/access_token=([^&]+)/);
             const refreshMatch = fullUrl.match(/refresh_token=([^&]+)/);
-            
+
             if (tokenMatch && refreshMatch) {
                 return {
                     access_token: decodeURIComponent(tokenMatch[1]),
@@ -3057,7 +3056,7 @@
                     token_type: 'bearer'
                 };
             }
-            
+
             return null;
         }
 
@@ -3069,11 +3068,11 @@
                     console.error('Supabase client not initialized');
                     return;
                 }
-                
+
                 // Check for OAuth tokens in URL
                 const tokens = parseOAuthTokens();
                 let session = null;
-                
+
                 if (tokens) {
                     console.log('Found OAuth tokens, setting session...');
                     try {
@@ -3082,15 +3081,15 @@
                             access_token: tokens.access_token,
                             refresh_token: tokens.refresh_token
                         });
-                        
+
                         if (sessionError) {
                             console.error('Error setting session:', sessionError);
                             showError('Failed to complete sign in. Please try again.');
                             return;
                         }
-                        
+
                         session = sessionData?.session;
-                        
+
                         // Clean up URL - remove tokens from hash/URL
                         const cleanUrl = window.location.pathname + window.location.search;
                         window.history.replaceState(null, '', cleanUrl);
@@ -3108,21 +3107,21 @@
                     }
                     session = data?.session;
                 }
-                
+
                 // If we have a session and haven't processed it yet, finalize signup and redirect
                 if (session && !sessionStorage.getItem('oauthProcessed')) {
                     sessionStorage.setItem('oauthProcessed', '1');
-                    
+
                     console.log('Processing provider signup...');
-                    
+
                     // Call signup-user edge function to create user profile
                     try {
                         // Get role from URL params if available, default to 'kasambahay'
                         const urlParams = new URLSearchParams(window.location.search);
                         const role = urlParams.get('role') || 'kasambahay';
-                        
+
                         console.log('Calling signup-user with role:', role);
-                        
+
                         const response = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
                             headers: {
@@ -3132,22 +3131,22 @@
                             },
                             body: JSON.stringify({ role }),
                         });
-                        
+
                         // Handle response - 409 means user already exists, which is fine
                         if (!response.ok && response.status !== 409) {
                             const result = await response.json().catch(() => ({}));
                             throw new Error(result.error || 'Failed to finalize signup');
                         }
-                        
+
                         console.log('Provider signup finalized successfully');
                     } catch (finalizeError) {
                         console.error('Finalize provider signup error:', finalizeError);
-                        // Still continue to store redirect to complete UX even if finalize fails
+                        // Still show success screen even if finalize fails
                     }
-                    
-                    // Always redirect to app store after signup (or if signup fails)
-                    console.log('Redirecting to app store...');
-                    redirectToStore();
+
+                    // Show success screen instead of redirecting to app store
+                    console.log('Showing success screen...');
+                    showSuccessScreen();
                 }
             } catch (e) {
                 console.error('OAuth callback processing error:', e);
@@ -3159,7 +3158,7 @@
 
         // OAuth return handling on page load
         window.addEventListener('DOMContentLoaded', processOAuthCallback);
-        
+
         // Also check immediately in case DOMContentLoaded already fired
         if (document.readyState === 'loading') {
             // DOMContentLoaded will fire
@@ -3174,7 +3173,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const countryModal = document.getElementById('countryModal');
-                
+
                 if (countryModal && countryModal.classList.contains('show')) {
                     closeCountryModal();
                 }
@@ -3182,5 +3181,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>
