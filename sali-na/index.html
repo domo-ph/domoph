@@ -3023,7 +3023,7 @@
             applyDeviceDetection();
         });
 
-        // Parse OAuth tokens from URL hash or current URL
+        // Parse OAuth tokens from URL hash, query params, or current URL
         function parseOAuthTokens() {
             // Check URL hash first (standard OAuth redirect)
             const hash = window.location.hash.substring(1);
@@ -3033,6 +3033,7 @@
                 const refreshToken = params.get('refresh_token');
 
                 if (accessToken && refreshToken) {
+                    console.log('Found tokens in URL hash');
                     return {
                         access_token: accessToken,
                         refresh_token: refreshToken,
@@ -3042,13 +3043,28 @@
                 }
             }
 
+            // Check query parameters (some OAuth flows use query params)
+            const searchParams = new URLSearchParams(window.location.search);
+            const queryAccessToken = searchParams.get('access_token');
+            const queryRefreshToken = searchParams.get('refresh_token');
+
+            if (queryAccessToken && queryRefreshToken) {
+                console.log('Found tokens in query parameters');
+                return {
+                    access_token: queryAccessToken,
+                    refresh_token: queryRefreshToken,
+                    expires_at: searchParams.get('expires_at') ? parseInt(searchParams.get('expires_at')) : null,
+                    token_type: searchParams.get('token_type') || 'bearer'
+                };
+            }
+
             // Check if current URL contains OAuth tokens (fallback for failed deeplink redirects)
-            // Sometimes browsers might preserve tokens in the URL even after failed deeplink attempts
             const fullUrl = window.location.href;
             const tokenMatch = fullUrl.match(/access_token=([^&]+)/);
             const refreshMatch = fullUrl.match(/refresh_token=([^&]+)/);
 
             if (tokenMatch && refreshMatch) {
+                console.log('Found tokens in URL string');
                 return {
                     access_token: decodeURIComponent(tokenMatch[1]),
                     refresh_token: decodeURIComponent(refreshMatch[1]),
@@ -3060,7 +3076,7 @@
             return null;
         }
 
-        // Process OAuth callback: set session, call signup-user, then redirect to app store
+        // Process OAuth callback: set session, call signup-user, then show success
         async function processOAuthCallback() {
             try {
                 initSupabase();
@@ -3069,7 +3085,18 @@
                     return;
                 }
 
-                // Check for OAuth tokens in URL
+                console.log('Processing OAuth callback...');
+                console.log('Current URL:', window.location.href);
+                console.log('URL hash:', window.location.hash);
+                console.log('URL search:', window.location.search);
+
+                // Check if we've already processed this callback
+                if (sessionStorage.getItem('oauthProcessed')) {
+                    console.log('OAuth callback already processed, skipping...');
+                    return;
+                }
+
+                // Check for OAuth tokens in URL (hash, query params, or full URL)
                 const tokens = parseOAuthTokens();
                 let session = null;
 
@@ -3089,9 +3116,20 @@
                         }
 
                         session = sessionData?.session;
+                        console.log('Session set successfully:', session ? 'Yes' : 'No');
 
-                        // Clean up URL - remove tokens from hash/URL
-                        const cleanUrl = window.location.pathname + window.location.search;
+                        // Clean up URL - remove tokens from hash and query params
+                        let cleanUrl = window.location.pathname;
+                        const searchParams = new URLSearchParams(window.location.search);
+                        searchParams.delete('access_token');
+                        searchParams.delete('refresh_token');
+                        searchParams.delete('expires_at');
+                        searchParams.delete('token_type');
+                        const cleanSearch = searchParams.toString();
+                        if (cleanSearch) {
+                            cleanUrl += '?' + cleanSearch;
+                        }
+                        // Remove hash fragment (tokens are usually in hash)
                         window.history.replaceState(null, '', cleanUrl);
                     } catch (hashError) {
                         console.error('Error processing OAuth tokens:', hashError);
@@ -3099,20 +3137,23 @@
                         return;
                     }
                 } else {
-                    // Try to get existing session
+                    // Try to get existing session (Supabase may have already handled it)
+                    console.log('No tokens found, checking for existing session...');
                     const { data, error } = await supabaseClient.auth.getSession();
                     if (error) {
                         console.warn('Session fetch error:', error);
-                        return;
+                        // Don't return here - might be a new user flow
+                    } else {
+                        session = data?.session;
+                        console.log('Existing session found:', session ? 'Yes' : 'No');
                     }
-                    session = data?.session;
                 }
 
-                // If we have a session and haven't processed it yet, finalize signup and redirect
-                if (session && !sessionStorage.getItem('oauthProcessed')) {
+                // If we have a session and haven't processed it yet, finalize signup
+                if (session) {
+                    // Mark as processed immediately to prevent duplicate processing
                     sessionStorage.setItem('oauthProcessed', '1');
-
-                    console.log('Processing provider signup...');
+                    console.log('Processing provider signup for user:', session.user?.id);
 
                     // Call signup-user edge function to create user profile
                     try {
@@ -3147,6 +3188,9 @@
                     // Show success screen instead of redirecting to app store
                     console.log('Showing success screen...');
                     showSuccessScreen();
+                } else if (!session) {
+                    console.log('No session found - user may not have completed OAuth flow');
+                    // Don't show error - user might just be visiting the page normally
                 }
             } catch (e) {
                 console.error('OAuth callback processing error:', e);
@@ -3156,14 +3200,37 @@
             }
         }
 
+        // Set up auth state change listener as backup
+        function setupAuthStateListener() {
+            if (!supabaseClient) {
+                initSupabase();
+            }
+            if (supabaseClient) {
+                supabaseClient.auth.onAuthStateChange((event, session) => {
+                    console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
+                    if (event === 'SIGNED_IN' && session && !sessionStorage.getItem('oauthProcessed')) {
+                        console.log('User signed in via auth state change, processing...');
+                        // Small delay to ensure everything is ready
+                        setTimeout(() => {
+                            processOAuthCallback();
+                        }, 100);
+                    }
+                });
+            }
+        }
+
         // OAuth return handling on page load
-        window.addEventListener('DOMContentLoaded', processOAuthCallback);
+        window.addEventListener('DOMContentLoaded', () => {
+            setupAuthStateListener();
+            processOAuthCallback();
+        });
 
         // Also check immediately in case DOMContentLoaded already fired
         if (document.readyState === 'loading') {
             // DOMContentLoaded will fire
         } else {
             // DOM already loaded, process immediately
+            setupAuthStateListener();
             processOAuthCallback();
         }
 
