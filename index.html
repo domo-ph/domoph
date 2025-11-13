@@ -187,5 +187,18 @@
             </div>
         </div>
     </div>
+    <script>
+        // Redirect signup buttons to signup page
+        document.addEventListener('DOMContentLoaded', function() {
+            const signupButtons = document.querySelectorAll('.bubble-element.Button[data-outline="true"]');
+            signupButtons.forEach(button => {
+                if (button.textContent.trim() === 'Get Domo free') {
+                    button.addEventListener('click', function() {
+                        window.location.href = 'sali-na/index.html';
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 </html>

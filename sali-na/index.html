@@ -111,7 +111,7 @@
         .logo-title {
             font-size: 24px;
             font-weight: 700;
-            line-height: 28px;
+            line-height: 1.1666666666666667em;
             letter-spacing: -0.006em;
             color: var(--surface-subtle);
             text-align: left;
@@ -119,7 +119,7 @@
 
         /* Social Auth Buttons Section */
         .social-auth-section {
-            padding: var(--spacing-ml) var(--spacing-m);
+            padding: 20px var(--spacing-m);
             display: flex;
             flex-direction: column;
             gap: var(--spacing-m);
@@ -127,15 +127,15 @@
 
         .auth-button {
             width: 100%;
-            padding: 12px var(--spacing-m);
+            padding: 12px 16px;
             background-color: var(--surface-subtle);
             border: 1px solid var(--text-disabled);
             border-radius: 8px;
             font-size: 14px;
             font-weight: 700;
-            line-height: 18px;
+            line-height: 1.2857142857142858em;
             letter-spacing: -0.006em;
-            color: var(--text-black);
+            color: #1B1A1E;
             cursor: pointer;
             transition: opacity 0.2s, background-color 0.2s;
             display: flex;
@@ -158,12 +158,10 @@
         .auth-note {
             font-size: 14px;
             font-weight: 500;
-            line-height: 18px;
+            line-height: 1.2857142857142858em;
             letter-spacing: -0.006em;
             color: var(--surface-subtle);
             text-align: left;
-            padding-top: 10px;
-            padding-bottom: 10px;
         }
 
         /* Or Divider */
@@ -183,7 +181,7 @@
         .divider-text {
             font-size: 14px;
             font-weight: 600;
-            line-height: 20px;
+            line-height: 1.4285714285714286em;
             letter-spacing: -0.006em;
             color: var(--surface-subtle);
         }
@@ -193,16 +191,17 @@
             padding: var(--spacing-ml) var(--spacing-m);
             display: flex;
             flex-direction: column;
+            align-items: center;
             gap: var(--spacing-m);
         }
 
         .email-mobile-link {
             font-size: 14px;
             font-weight: 700;
-            line-height: 18px;
+            line-height: 1.2857142857142858em;
             letter-spacing: -0.006em;
             color: #9FDAEF;
-            text-align: left;
+            text-align: center;
             cursor: pointer;
             background: none;
             border: none;
@@ -217,10 +216,9 @@
         /* Form Section */
         .form-section {
             display: none;
-            padding: var(--spacing-ml) var(--spacing-m);
-            background-color: var(--surface-subtle);
-            border-radius: 12px 12px 0 0;
-            margin-top: auto;
+            padding: 20px var(--spacing-m);
+            background-color: transparent;
+            margin-top: 0;
         }
 
         .form-section.show {
@@ -246,32 +244,11 @@
             display: flex;
             flex-direction: column;
             gap: var(--spacing-s);
-            padding: var(--spacing-sm) var(--spacing-m);
-            background-color: var(--surface-subtle);
-            border: 1px solid var(--border-default);
-            border-radius: 8px;
-            min-height: 58px;
-            justify-content: center;
             width: 100%;
-            box-sizing: border-box;
-        }
-
-        .mobile-input-label {
-            font-size: 10px;
-            font-weight: 600;
-            line-height: 14px;
-            letter-spacing: -0.006em;
-            color: var(--secondary-default);
-        }
-
-        .mobile-input-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
         }
 
         .mobile-input-flag {
-            width: 25.2px;
+            width: 25px;
             height: 18px;
             flex-shrink: 0;
         }
@@ -410,13 +387,13 @@
         }
 
         .form-group:last-of-type {
-            margin-bottom: var(--spacing-xl);
+            margin-bottom: 0;
         }
 
         .input-label {
-            font-size: 16px;
+            font-size: 10px;
             font-weight: 600;
-            line-height: 26px;
+            line-height: 1.4em;
             color: var(--secondary-default);
             margin-bottom: 4px;
             display: block;
@@ -425,22 +402,23 @@
 
         .input-field {
             width: 100%;
-            padding: 12px 16px;
-            font-size: 16px;
+            padding: 8px 16px;
+            font-size: 14px;
             font-weight: 500;
-            line-height: 26px;
+            line-height: 1.2857142857142858em;
             color: var(--text-body);
             background-color: var(--surface-subtle);
-            border: 1px solid var(--border-default);
+            border: 1px solid #9D9BA6;
             border-radius: 8px;
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
             font-family: 'Inter', sans-serif;
             box-sizing: border-box;
+            height: 58px;
         }
 
         .input-field::placeholder {
-            color: var(--neutral-300);
+            color: #B5B3BC;
             font-weight: 500;
         }
 
@@ -452,26 +430,74 @@
         /* Mobile Input with Country Code */
         .mobile-input-container {
             display: flex;
-            align-items: stretch;
-            gap: 0;
-            border: 1px solid var(--border-default);
+            flex-direction: column;
+            gap: 4px;
+            border: 1px solid #9D9BA6;
             border-radius: 8px;
             background-color: var(--surface-subtle);
-            overflow: hidden;
+            padding: 8px 16px;
             width: 100%;
             box-sizing: border-box;
+            min-height: 58px;
+            overflow: hidden;
+        }
+
+        .mobile-input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            flex: 1;
+        }
+
+        .mobile-input-inline-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.4em;
+            letter-spacing: -0.006em;
+            color: var(--secondary-default);
+        }
+
+        /* Form Reminder Section */
+        .form-reminder {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+            margin-top: 0;
+        }
+
+        .reminder-emoji {
+            font-size: 14px;
+            line-height: 1.2857142857142858em;
+            flex-shrink: 0;
+        }
+
+        .reminder-text {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.2857142857142858em;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            flex: 1;
         }
 
         .country-code-selector {
             display: flex;
             align-items: center;
-            padding: 12px 12px;
+            padding: 0;
             background-color: transparent;
-            border-right: 1px solid var(--border-default);
+            border: none;
             cursor: pointer;
-            min-width: 100px;
-            gap: 6px;
+            min-width: 80px;
+            gap: 4px;
             flex-shrink: 0;
+            height: 18px;
+            min-height: 18px;
+            color: inherit;
+            font: inherit;
         }
 
         .country-code-selector:hover {
@@ -494,13 +520,14 @@
             margin-top: 2px;
         }
 
-        .mobile-input-field {
+        .mobile-input-field,
+        .mobile-input-number {
             flex: 1;
             border: none;
-            padding: 12px 16px;
-            font-size: 16px;
+            padding: 0;
+            font-size: 14px;
             font-weight: 500;
-            line-height: 26px;
+            line-height: 1.2857142857142858em;
             color: var(--text-body);
             background-color: transparent;
             outline: none;
@@ -508,10 +535,13 @@
             min-width: 0;
             width: 100%;
             box-sizing: border-box;
+            height: 18px;
+            min-height: 18px;
         }
 
-        .mobile-input-field::placeholder {
-            color: var(--neutral-300);
+        .mobile-input-field::placeholder,
+        .mobile-input-number::placeholder {
+            color: #B5B3BC;
             font-weight: 500;
         }
 
@@ -873,6 +903,13 @@
             text-align: center;
         }
 
+        .country-item-flag-img {
+            width: 21px;
+            height: 15px;
+            object-fit: contain;
+            display: inline-block;
+        }
+
         .country-item-info {
             flex: 1;
             display: flex;
@@ -896,22 +933,19 @@
         /* Button */
         .btn-primary {
             width: 100%;
-            padding: 12px var(--spacing-sm);
+            padding: 12px 16px;
             background-color: var(--primary-default);
             color: var(--surface-subtle);
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 14px;
-            font-weight: 700;
-            line-height: 20px;
+            font-weight: 500;
+            line-height: 1.2857142857142858em;
             cursor: pointer;
             transition: opacity 0.2s, background-color 0.2s;
-            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: var(--spacing-xxxl);
-            margin-bottom: var(--spacing-l);
             font-family: 'Inter', sans-serif;
             box-sizing: border-box;
         }
@@ -921,33 +955,40 @@
         }
 
         .btn-primary:disabled {
-            opacity: 0.5;
-            background-color: var(--border-default);
+            background-color: #CDCCD1;
+            color: #83818F;
             cursor: not-allowed;
+        }
+
+        /* Button Section */
+        .button-section {
+            padding: 40px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
 
         /* Footer */
         .footer {
             text-align: center;
-            margin-top: var(--spacing-sm);
             width: 100%;
-            padding: 0 var(--spacing-xs);
+            padding: 0;
         }
 
         .footer-text {
-            font-size: 20px;
-            font-weight: 600;
-            line-height: 30px;
-            color: var(--text-body);
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2857142857142858em;
+            color: #9FDAEF;
             display: inline;
             word-wrap: break-word;
         }
 
         .footer-link {
-            font-size: 20px;
-            font-weight: 600;
-            line-height: 30px;
-            color: var(--secondary-default);
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2857142857142858em;
+            color: #9FDAEF;
             text-decoration: none;
             display: inline;
             cursor: pointer;
@@ -990,10 +1031,6 @@
                 line-height: 24px;
             }
 
-            .mobile-input-wrapper {
-                padding: var(--spacing-xs) var(--spacing-sm);
-            }
-
             .otp-input {
                 width: 48px;
                 height: 48px;
@@ -1011,8 +1048,7 @@
                 line-height: 20px;
             }
 
-            .input-field,
-            .mobile-input-field {
+            .input-field {
                 padding: 12px var(--spacing-sm);
                 font-size: 16px;
             }
@@ -1093,55 +1129,47 @@
             }
 
             .logo-section {
-                padding: 32px var(--spacing-m) 16px;
+                padding: 40px var(--spacing-m) 20px;
             }
 
             .logo-title {
-                font-size: 22px;
-                line-height: 26px;
+                font-size: 24px;
+                line-height: 1.1666666666666667em;
             }
 
             .social-auth-section {
-                padding: var(--spacing-m) var(--spacing-m);
-                gap: var(--spacing-sm);
+                padding: 20px var(--spacing-m);
+                gap: var(--spacing-m);
             }
 
             .auth-button {
-                padding: 14px var(--spacing-m);
+                padding: 12px 16px;
                 font-size: 14px;
             }
 
             .auth-button-icon {
-                width: 18px;
-                height: 18px;
+                width: 20px;
+                height: 20px;
             }
 
             .auth-note {
-                font-size: 13px;
-                line-height: 18px;
+                font-size: 14px;
+                line-height: 1.2857142857142858em;
             }
 
             .divider-section {
-                padding: var(--spacing-sm) var(--spacing-m);
-                gap: var(--spacing-m);
+                padding: var(--spacing-m);
+                gap: var(--spacing-ml);
             }
 
             .divider-text {
-                font-size: 13px;
+                font-size: 14px;
+                line-height: 1.4285714285714286em;
             }
 
             .email-mobile-link {
                 font-size: 14px;
-            }
-
-            .mobile-input-wrapper {
-                height: auto;
-                min-height: 58px;
-                padding: var(--spacing-sm) var(--spacing-m);
-            }
-
-            .mobile-input-label {
-                font-size: 9px;
+                line-height: 1.2857142857142858em;
             }
 
             .mobile-input-number {
@@ -1166,57 +1194,72 @@
             }
 
             .form-section {
-                padding: var(--spacing-m) var(--spacing-m);
+                padding: 20px var(--spacing-m);
                 padding-bottom: max(24px, env(safe-area-inset-bottom));
-                border-radius: 16px 16px 0 0;
+                background-color: transparent;
+            }
+
+            .form-reminder {
+                gap: 8px;
+            }
+
+            .reminder-text {
+                font-size: 14px;
+                line-height: 1.2857142857142858em;
             }
 
             .form-group {
-                margin-bottom: var(--spacing-sm);
+                margin-bottom: var(--spacing-m);
             }
 
             .form-group:last-of-type {
-                margin-bottom: var(--spacing-l);
+                margin-bottom: 0;
             }
 
             .input-label {
-                font-size: 14px;
-                line-height: 22px;
-                margin-bottom: var(--spacing-xs);
+                font-size: 10px;
+                line-height: 1.4em;
+                margin-bottom: 4px;
             }
 
-            .input-field,
-            .mobile-input-field {
-                padding: 14px var(--spacing-m);
-                font-size: 16px;
-                line-height: 24px;
-                border-radius: 8px;
+            .input-field {
+                padding: 8px 16px;
+                font-size: 14px;
+                line-height: 1.2857142857142858em;
+                height: 58px;
             }
 
             .mobile-input-container {
-                border-radius: 8px;
+                padding: 8px 16px;
+                min-height: 58px;
+            }
+
+            .mobile-input-field {
+                font-size: 14px;
+                line-height: 1.2857142857142858em;
             }
 
             .country-code-selector {
-                padding: 14px var(--spacing-sm);
-                min-width: 90px;
+                padding: 0;
+                min-width: 80px;
+                height: 18px;
+                min-height: 18px;
             }
 
             .country-code-text {
-                font-size: 12px;
+                font-size: 13px;
             }
 
-            .country-flag {
-                font-size: 16px;
+            .button-section {
+                padding: 40px 0;
+                gap: 14px;
             }
 
             .btn-primary {
-                padding: 14px var(--spacing-sm);
-                height: 52px;
-                font-size: 15px;
-                margin-top: var(--spacing-xl);
-                margin-bottom: var(--spacing-m);
-                border-radius: 12px;
+                padding: 12px 16px;
+                font-size: 14px;
+                line-height: 1.2857142857142858em;
+                border-radius: 8px;
             }
 
             .error-message,
@@ -1229,8 +1272,8 @@
 
             .footer-text,
             .footer-link {
-                font-size: 16px;
-                line-height: 24px;
+                font-size: 14px;
+                line-height: 1.2857142857142858em;
             }
 
             .modal-content {
@@ -1268,20 +1311,7 @@
             }
 
             .mobile-input-wrapper {
-                min-height: 64px;
-                padding: var(--spacing-sm) var(--spacing-m);
                 gap: var(--spacing-xs);
-            }
-
-            .mobile-input-label {
-                font-size: 10px;
-                line-height: 14px;
-                margin-bottom: 0;
-            }
-
-            .mobile-input-row {
-                flex: 1;
-                min-height: 0;
             }
 
             .form-section {
@@ -1302,8 +1332,7 @@
                 line-height: 24px;
             }
 
-            .input-field,
-            .mobile-input-field {
+            .input-field {
                 padding: 13px var(--spacing-m);
                 font-size: 16px;
             }
@@ -1311,6 +1340,8 @@
             .country-code-selector {
                 padding: 13px var(--spacing-sm);
                 min-width: 95px;
+                height: 18px;
+                min-height: 18px;
             }
 
             .btn-primary {
@@ -1378,8 +1409,7 @@
                 line-height: 26px;
             }
 
-            .input-field,
-            .mobile-input-field {
+            .input-field {
                 padding: 12px var(--spacing-m);
                 font-size: 16px;
             }
@@ -1387,6 +1417,8 @@
             .country-code-selector {
                 padding: 12px var(--spacing-sm);
                 min-width: 100px;
+                height: 18px;
+                min-height: 18px;
             }
 
             .btn-primary {
@@ -1504,8 +1536,7 @@
                 margin-bottom: var(--spacing-xs);
             }
 
-            .input-field,
-            .mobile-input-field {
+            .input-field {
                 padding: 10px var(--spacing-m);
                 font-size: 16px;
             }
@@ -1533,12 +1564,10 @@
             }
 
             .country-code-selector {
-                min-height: 44px;
+                min-height: 18px;
             }
 
-            .input-field,
-            .mobile-input-field,
-            .mobile-input-number {
+            .input-field {
                 min-height: 48px;
             }
 
@@ -1551,8 +1580,6 @@
         /* Prevent iOS zoom on input focus */
         @media (max-width: 767px) {
             .input-field,
-            .mobile-input-field,
-            .mobile-input-number,
             .otp-input,
             .modal-search-input {
                 font-size: 16px !important;
@@ -1621,15 +1648,15 @@
 
         <!-- Social Auth Buttons Section -->
         <div id="socialAuthButtonsSection" class="social-auth-section">
-            <button class="auth-button" onclick="handleGoogleSignup()">
+            <button class="auth-button" id="googleAuthButton" onclick="beginProviderSignupWithOtp('google')">
                 <img src="google-icon.svg" alt="Google" class="auth-button-icon" />
                 <span>Direktang sign-up gamit Google</span>
             </button>
-            <button class="auth-button" onclick="handleFacebookSignup()">
+            <button class="auth-button" id="facebookAuthButton" onclick="beginProviderSignupWithOtp('facebook')">
                 <img src="facebook-icon.svg" alt="Facebook" class="auth-button-icon" />
                 <span>Direktang sign-up gamit FB</span>
             </button>
-            <button class="auth-button" onclick="handleAppleSignup()">
+            <button class="auth-button" id="appleAuthButton" onclick="beginProviderSignupWithOtp('apple')">
                 <img src="apple-icon.svg" alt="Apple" class="auth-button-icon" />
                 <span>Direktang sign-up gamit Apple</span>
             </button>
@@ -1658,16 +1685,22 @@
 
             <!-- Mobile Input -->
             <div class="mobile-input-wrapper">
-                <label class="mobile-input-label">Mobile No.</label>
-                <div class="mobile-input-row">
-                    <img src="philippines-flag.svg" alt="Philippines" class="mobile-input-flag" id="mobileOtpFlag" />
-                    <input
-                        type="tel"
-                        id="mobileOtpInput"
-                        class="mobile-input-number"
-                        placeholder="912 345 6789"
-                        autocomplete="tel"
-                    />
+                <div class="mobile-input-container">
+                    <label class="mobile-input-inline-label" for="mobileOtpInput">Mobile No.</label>
+                    <div class="mobile-input-row">
+                        <button type="button" class="country-code-selector" id="countrySelectorOtp" onclick="toggleCountryPicker()">
+                            <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag" id="mobileOtpFlagImg" />
+                            <span class="country-code-text" id="mobileOtpCode">+63</span>
+                            <span class="country-dropdown-icon">▼</span>
+                        </button>
+                        <input
+                            type="tel"
+                            id="mobileOtpInput"
+                            class="mobile-input-number"
+                            placeholder="912 345 6789"
+                            autocomplete="tel"
+                        />
+                    </div>
                 </div>
             </div>
             <div class="button-container-send">
@@ -1694,66 +1727,51 @@
         <!-- Form Section (Initially Hidden) -->
         <div id="formSection" class="form-section">
             <form id="signupForm" onsubmit="handleSignup(event)">
-                <!-- Name Field -->
+                <!-- Email or Mobile Field -->
                 <div class="form-group">
-                    <label for="name" class="input-label">How should we call you?</label>
-                    <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        class="input-field"
-                        placeholder="Enter your nickname"
-                        autocomplete="name"
-                        required
-                    />
-                </div>
-
-                <!-- Mobile Number Field -->
-                <div class="form-group">
-                    <label for="mobile" class="input-label">Mobile</label>
                     <div class="mobile-input-container">
-                        <div class="country-code-selector" id="countrySelector" onclick="toggleCountryPicker()">
-                            <span class="country-flag" id="countryFlag">🇵🇭</span>
-                            <span class="country-code-text" id="countryCode">+63</span>
-                            <span class="country-dropdown-icon">▼</span>
+                        <label for="mobile" class="mobile-input-inline-label">Email or mobile</label>
+                        <div class="mobile-input-row">
+                            <button type="button" class="country-code-selector" id="countrySelector" onclick="toggleCountryPicker()">
+                                <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag" id="countryFlagImg" />
+                                <span class="country-code-text" id="countryCode">+63</span>
+                                <span class="country-dropdown-icon">▼</span>
+                            </button>
+                            <input
+                                type="text"
+                                id="mobile"
+                                name="mobile"
+                                class="mobile-input-field"
+                                placeholder="917 123 4567"
+                                autocomplete="username"
+                                required
+                            />
                         </div>
-                        <input
-                            type="tel"
-                            id="mobile"
-                            name="mobile"
-                            class="mobile-input-field"
-                            placeholder="Enter mobile number"
-                            autocomplete="tel"
-                            required
-                        />
                     </div>
-                </div>
-
-                <!-- Email Field (Optional) -->
-                <div class="form-group">
-                    <label for="email" class="input-label">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        class="input-field"
-                        placeholder="hello@domo.ph"
-                        autocomplete="email"
-                    />
                 </div>
 
                 <!-- Password Field -->
                 <div class="form-group">
-                    <label for="password" class="input-label">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        class="input-field"
-                        placeholder="Enter your password"
-                        autocomplete="new-password"
-                        required
-                    />
+                    <div class="mobile-input-container">
+                        <label for="password" class="mobile-input-inline-label">Gumawa ng password</label>
+                        <div class="mobile-input-row">
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                class="mobile-input-field"
+                                placeholder="●●●●●●"
+                                autocomplete="new-password"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reminder Section -->
+                <div class="form-reminder">
+                    <span class="reminder-emoji">🎉</span>
+                    <span class="reminder-text">Paalala: Ito ang magiging account mo para makapag-login sa app</span>
                 </div>
 
                 <!-- Error Message -->
@@ -1762,17 +1780,20 @@
                 <!-- Success Message -->
                 <div id="successMessage" class="success-message" role="status"></div>
 
-                <!-- Create Account Button -->
-                <button type="submit" id="submitButton" class="btn-primary">
-                    Create Account
-                </button>
             </form>
 
+            <!-- Button Section -->
+            <div class="button-section">
+                <button type="submit" id="submitButton" class="btn-primary" form="signupForm">
+                    Sumali na
+                </button>
             <!-- Footer -->
             <footer class="footer">
-                <span class="footer-text">Already have an account? </span>
-                <a href="#" class="footer-link" onclick="handleSignIn(event)">Sign In</a>
+                    <span class="footer-text">
+                        <a href="#" class="footer-link" id="backToMainButton" onclick="showMainContent(); return false;">Iba pang paraan sa sign-up</a>
+                    </span>
             </footer>
+            </div>
         </div>
 
         <!-- Social Auth Instructions Section (Initially Hidden) -->
@@ -1812,11 +1833,11 @@
                         Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
                     </p>
                     <div class="app-store-buttons">
-                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link ios-only">
-                            <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
-                        </a>
                         <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank" rel="noopener noreferrer" class="app-store-link android-only">
                             <img src="google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
+                        </a>
+                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375" target="_blank" rel="noopener noreferrer" class="app-store-link">
+                            <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
                         </a>
                     </div>
                 </div>
@@ -1844,6 +1865,9 @@
         </div>
     </div>
 
+    <!-- Supabase JS (for web OAuth) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
         // Supabase Configuration
         // Set your Supabase URL and anon key here or via window globals
@@ -1867,9 +1891,10 @@
         const SEND_VERIFICATION_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/send-verification-code`;
         const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
 
+        try { console.log('Signup script initialized'); } catch (_) {}
+
         // Form validation and state
         const form = document.getElementById('signupForm');
-        const nameInput = document.getElementById('name');
         const mobileInput = document.getElementById('mobile');
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
@@ -1878,11 +1903,31 @@
         const successMessage = document.getElementById('successMessage');
         const countryCodeText = document.getElementById('countryCode');
         const countryFlag = document.getElementById('countryFlag');
+        const countrySelector = document.getElementById('countrySelector');
+        const countryFlagImg = document.getElementById('countryFlagImg');
+        // Bind country selector immediately (don't rely solely on DOMContentLoaded)
+        if (countrySelector) {
+            countrySelector.setAttribute('role', 'button');
+            countrySelector.setAttribute('tabindex', '0');
+            countrySelector.setAttribute('aria-haspopup', 'listbox');
+            countrySelector.setAttribute('aria-expanded', 'false');
+            countrySelector.addEventListener('click', (e) => {
+                e.preventDefault();
+                toggleCountryPicker();
+            });
+            countrySelector.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleCountryPicker();
+                }
+            });
+        }
 
         // Country code selection (defaults to Philippines)
         let selectedCountryCode = '+63';
         let selectedCountryFlag = '🇵🇭';
         let selectedCountryCode_iso = 'PH';
+        let pendingSignupData = null;
 
         // Common countries list (matching React Native MobileInput)
         const countries = [
@@ -1931,9 +1976,40 @@
             return emailRegex.test(email);
         }
 
+        function isEmailIdentifier(value) {
+            if (!value) return false;
+            return /@/.test(value) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+        }
+
+        function getFlagImageSrc(countryIso) {
+            if (!countryIso) return 'flag-icons/ph.svg';
+            return `flag-icons/${countryIso.toLowerCase()}.svg`;
+        }
+
         function validatePassword(password) {
             // Password must be at least 6 characters
             return password.length >= 6;
+        }
+
+        // Formatters for masking on blur (display-only formatting)
+        function formatLocalForDisplay(value, countryIso) {
+            const digits = (value || '').replace(/\D/g, '');
+            if (!digits) return '';
+
+            // Philippines formatting
+            if (countryIso === 'PH') {
+                // If user kept leading 0 and length is 11: 0929 260 8805 (4-3-4 grouping)
+                if (digits.length === 11 && digits.startsWith('0')) {
+                    return `${digits.slice(0, 4)}${digits.slice(4, 7) ? ' ' + digits.slice(4, 7) : ''}${digits.slice(7) ? ' ' + digits.slice(7) : ''}`;
+                }
+                // If 10 digits (no leading 0): 929 260 8805 (3-3-4 grouping)
+                if (digits.length === 10) {
+                    return `${digits.slice(0, 3)}${digits.slice(3, 6) ? ' ' + digits.slice(3, 6) : ''}${digits.slice(6) ? ' ' + digits.slice(6) : ''}`;
+                }
+            }
+
+            // Fallback: group by 3s (e.g., 123 456 7890)
+            return digits.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
         }
 
         function validateMobile(mobile, countryCode) {
@@ -1943,8 +2019,8 @@
                 const processedDigits = digits.replace(/^0+/, '');
                 return processedDigits.length === 10;
             }
-            // For other countries, require at least 5 digits
-            return digits.length >= 5;
+            // For other countries, E.164 light check: 5-15 digits
+            return digits.length >= 5 && digits.length <= 15;
         }
 
         // Update button state based on form validity
@@ -1956,48 +2032,99 @@
                 return;
             }
             
-            if (!nameInput || !mobileInput || !passwordInput || !submitButton) {
+            if (!mobileInput || !passwordInput || !submitButton) {
                 return;
             }
 
-            const name = nameInput.value.trim();
-            const mobile = mobileInput.value.trim();
+            const identifier = mobileInput.value.trim();
             const email = emailInput ? emailInput.value.trim() : '';
             const password = passwordInput.value.trim();
 
+            // Detect identifier type and toggle country selector visibility
+            const idIsEmail = isEmailIdentifier(identifier);
+            if (countrySelector) {
+                countrySelector.style.display = idIsEmail ? 'none' : 'flex';
+            }
+
+            let identifierValid = false;
+            if (idIsEmail) {
+                identifierValid = validateEmail(identifier);
+            } else {
+                identifierValid = validateMobile(identifier, selectedCountryCode_iso);
+            }
+
             const isFormValid = 
-                name && 
-                mobile && 
+                identifier && 
                 password &&
                 validatePassword(password) &&
-                validateEmail(email) &&
-                validateMobile(mobile, selectedCountryCode_iso);
+                (email ? validateEmail(email) : true) &&
+                identifierValid;
             
             submitButton.disabled = !isFormValid;
         }
 
         // Add input listeners (only if inputs exist)
-        const formInputs = [nameInput, mobileInput, emailInput, passwordInput].filter(input => input !== null);
+        const formInputs = [mobileInput, emailInput, passwordInput].filter(input => input !== null);
         formInputs.forEach(input => {
             input.addEventListener('input', updateButtonState);
         });
+        // Masking handlers for the unified Email/Mobile field
+        if (mobileInput) {
+            mobileInput.addEventListener('blur', () => {
+                const val = mobileInput.value;
+                if (!val) return;
+                if (isEmailIdentifier(val)) return; // don't format emails
+                mobileInput.value = formatLocalForDisplay(val, selectedCountryCode_iso);
+            });
+            mobileInput.addEventListener('focus', () => {
+                // unmask to raw digits for easier editing
+                const val = mobileInput.value || '';
+                mobileInput.value = val.replace(/\D/g, '');
+            });
+        }
+
+        // Fallback event delegation for country selector (ensures click works)
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            if (!target) return;
+            const hit = target.closest ? target.closest('#countrySelector') : null;
+            if (hit) {
+                e.preventDefault();
+                toggleCountryPicker();
+            }
+        }, true);
 
         // Country picker modal functions
         function toggleCountryPicker() {
+            try { console.log('Opening country picker'); } catch (_) {}
             const modal = document.getElementById('countryModal');
             const searchInput = document.getElementById('countrySearch');
+            if (!modal) {
+                console.error('Country modal element not found');
+                return;
+            }
             modal.classList.add('show');
             renderCountryList();
             // Focus search input after modal opens
+            if (searchInput && searchInput.focus) {
             setTimeout(() => searchInput.focus(), 100);
         }
+            // a11y state
+            if (countrySelector) countrySelector.setAttribute('aria-expanded', 'true');
+        }
+        // Expose globally for inline onclick
+        window.toggleCountryPicker = toggleCountryPicker;
 
         function closeCountryModal(event) {
             if (event && event.target.id !== 'countryModal') return;
             const modal = document.getElementById('countryModal');
             modal.classList.remove('show');
             document.getElementById('countrySearch').value = '';
+            // a11y state
+            if (countrySelector) countrySelector.setAttribute('aria-expanded', 'false');
         }
+        // Expose globally for inline onclick
+        window.closeCountryModal = closeCountryModal;
 
         function selectCountry(country) {
             selectedCountryCode = country.callingCode;
@@ -2005,7 +2132,18 @@
             selectedCountryCode_iso = country.code;
             
             countryCodeText.textContent = country.callingCode;
-            countryFlag.textContent = country.flag;
+            if (countryFlagImg) {
+                countryFlagImg.src = getFlagImageSrc(selectedCountryCode_iso);
+                countryFlagImg.alt = country.name;
+            }
+            // Also reflect in OTP UI if present
+            const mobileOtpCodeEl = document.getElementById('mobileOtpCode');
+            const mobileOtpFlagImg = document.getElementById('mobileOtpFlagImg');
+            if (mobileOtpCodeEl) mobileOtpCodeEl.textContent = country.callingCode;
+            if (mobileOtpFlagImg) {
+                mobileOtpFlagImg.src = getFlagImageSrc(selectedCountryCode_iso);
+                mobileOtpFlagImg.alt = country.name;
+            }
             
             closeCountryModal();
             updateButtonState();
@@ -2021,14 +2159,13 @@
             });
 
             countryList.innerHTML = filtered.map(country => {
-                // Escape country object for safe HTML embedding
-                const countryData = JSON.stringify(country).replace(/"/g, '&quot;');
+                const flagSrc = getFlagImageSrc(country.code);
                 return `
-                    <div class="country-item" data-country-code="${country.code}">
-                        <span class="country-item-flag">${country.flag}</span>
+                    <div class="country-item" data-country-code="${country.code}" role="option" aria-label="${country.name} (${country.callingCode})">
+                        <img class="country-item-flag-img" src="${flagSrc}" alt="${country.name}" />
                         <div class="country-item-info">
                             <span class="country-item-name">${country.name}</span>
-                            <span class="country-item-code">${country.callingCode}</span>
+                            <span class="country-item-code">(${country.callingCode})</span>
                         </div>
                     </div>
                 `;
@@ -2048,6 +2185,24 @@
             if (countrySearch) {
                 countrySearch.addEventListener('input', (e) => {
                     renderCountryList(e.target.value);
+                });
+            }
+            // Keyboard support for country selector
+            if (countrySelector) {
+                countrySelector.setAttribute('role', 'button');
+                countrySelector.setAttribute('tabindex', '0');
+                countrySelector.setAttribute('aria-haspopup', 'listbox');
+                countrySelector.setAttribute('aria-expanded', 'false');
+                // Ensure click is bound even if inline onclick is blocked
+                countrySelector.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleCountryPicker();
+                });
+                countrySelector.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleCountryPicker();
+                    }
                 });
             }
         });
@@ -2084,31 +2239,32 @@
             hideError();
             hideSuccess();
 
-            const name = nameInput.value.trim();
-            const mobile = mobileInput.value.trim();
-            const email = emailInput.value.trim();
+            const identifier = mobileInput.value.trim();
+            const idIsEmail = isEmailIdentifier(identifier);
             const password = passwordInput.value.trim();
+            const extraEmail = emailInput ? emailInput.value.trim() : '';
 
-            // Validate required fields: nickname, mobile number, and password
-            if (!name || !mobile || !password) {
-                showError('Please fill in all required fields (nickname, mobile number, and password)');
+            if (!identifier || !password) {
+                showError('Please fill in all required fields (mobile and password)');
                 return;
             }
 
-            // Validate email format if provided
-            if (email && !validateEmail(email)) {
+            if (extraEmail && !validateEmail(extraEmail)) {
                 showError('Please enter a valid email address');
                 return;
             }
 
-            // Validate password strength
             if (!validatePassword(password)) {
                 showError('Password must be at least 6 characters long');
                 return;
             }
 
-            // Validate mobile number format
-            if (!validateMobile(mobile, selectedCountryCode_iso)) {
+            if (idIsEmail) {
+                showError('Please enter a valid mobile number to continue with OTP verification');
+                return;
+            }
+
+            if (!validateMobile(identifier, selectedCountryCode_iso)) {
                 if (selectedCountryCode_iso === 'PH') {
                     showError('Please enter a valid 10-digit Philippine mobile number');
                 } else {
@@ -2117,71 +2273,86 @@
                 return;
             }
 
-            // Format mobile number with country code
-            // For Philippines, remove leading zeros before concatenating
-            let mobileDigits = mobile.replace(/\D/g, ''); // Extract only digits
-            
+            let mobileDigits = identifier.replace(/\D/g, '');
             if (selectedCountryCode_iso === 'PH') {
-                // Remove leading zeros for Philippines (like React Native does)
                 mobileDigits = mobileDigits.replace(/^0+/, '');
             }
-            
             const fullMobileNumber = selectedCountryCode + mobileDigits;
+            const displayMobile = formatLocalForDisplay(identifier, selectedCountryCode_iso);
 
-            // Split full name into first and last name
-            const nameParts = name.split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
+            const emailValue = extraEmail || `phone_${fullMobileNumber.replace(/^\+/, '')}@verified.local`;
 
-            // Disable button during submission
+            pendingSignupData = {
+                identifier,
+                email: emailValue,
+                password,
+                mobileE164: fullMobileNumber,
+                mobileDisplay: displayMobile,
+                countryCode: selectedCountryCode,
+                countryIso: selectedCountryCode_iso
+            };
+
             submitButton.disabled = true;
-            submitButton.textContent = 'Creating Account...';
+            submitButton.textContent = 'Preparing OTP...';
 
-            // Call Supabase Edge Function
-            fetch(SIGNUP_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                    'apikey': window.SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({
-                    email: email || null,
-                    password: password,
-                    mobile_no: fullMobileNumber,
-                    full_name: name,
-                    first_name: firstName,
-                    last_name: lastName
-                })
-            })
-            .then(async response => {
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.error || `Server error: ${response.status}`);
-                }
-                return data;
-            })
-            .then(data => {
-                if (data.success) {
-                    // Success - show success message and redirect
-                    showSuccess(data.message || 'Account created successfully! Redirecting to login...');
-                    // Redirect after a short delay to show success message
-                    setTimeout(() => {
-                        window.location.href = 'login.html';
-                    }, 1500);
-                } else {
-                    // Show error message
-                    showError(data.error || 'Signup failed. Please try again.');
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Create Account';
-                }
-            })
-            .catch(error => {
-                console.error('Signup error:', error);
-                showError(error.message || 'An unexpected error occurred. Please try again.');
-                submitButton.disabled = false;
-                submitButton.textContent = 'Create Account';
+            const formSection = document.getElementById('formSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const successMessageOtp = document.getElementById('successMessageOtp');
+            const errorMessageOtp = document.getElementById('errorMessageOtp');
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+
+            if (formSection) {
+                formSection.classList.remove('show');
+                formSection.style.display = 'none';
+            }
+
+            initializeMobileOtp();
+
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.add('show');
+                mobileOtpSection.style.display = 'flex';
+            }
+
+            const mobileOtpInputEl = document.getElementById('mobileOtpInput');
+            if (mobileOtpInputEl) {
+                mobileOtpInputEl.value = displayMobile;
+                mobileOtpInputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            stopOtpCountdown();
+
+            if (successMessageOtp) {
+                successMessageOtp.classList.remove('show');
+                successMessageOtp.textContent = '';
+            }
+            if (errorMessageOtp) {
+                errorMessageOtp.classList.remove('show');
+                errorMessageOtp.textContent = '';
+            }
+
+            if (sendOtpButton) {
+                sendOtpButton.disabled = false;
+                sendOtpButton.textContent = 'Send OTP';
+            }
+            if (verifyOtpButton) {
+                verifyOtpButton.disabled = true;
+                verifyOtpButton.textContent = 'Verify OTP';
+            }
+            otpInputs.forEach(input => {
+                if (input) input.value = '';
             });
+
+            submitButton.disabled = false;
+            submitButton.textContent = 'Sumali na';
+
+            const mobileOtpInputFocus = document.getElementById('mobileOtpInput');
+            if (mobileOtpInputFocus) {
+                mobileOtpInputFocus.focus();
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Handle back button
@@ -2207,32 +2378,105 @@
             const dividerSection = document.getElementById('dividerSection');
             const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const formSection = document.getElementById('formSection');
             const socialAuthSection = document.getElementById('socialAuthSection');
             const successSection = document.getElementById('successSection');
             
-            // Hide all initial content
-            if (logoSection) logoSection.style.display = 'none';
+            // Hide all initial content except logo
             if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.remove('show');
+                mobileOtpSection.style.display = 'none';
+            }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
             if (successSection) successSection.classList.remove('show');
             
-            // Update title
+            // Keep logo section visible
             if (logoSection) {
-                logoSection.querySelector('.logo-title').textContent = 'Anong ginagamit mong mobile number?';
                 logoSection.style.display = 'flex';
             }
             
-            // Show mobile OTP section
-            if (mobileOtpSection) {
-                mobileOtpSection.classList.add('show');
+            // Show form section
+            if (formSection) {
+                formSection.classList.add('show');
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
-            
-            // Initialize mobile OTP functionality
-            initializeMobileOtp();
+        }
+
+        function showMainContent() {
+            const logoSection = document.getElementById('logoSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const formSection = document.getElementById('formSection');
+            const socialAuthSection = document.getElementById('socialAuthSection');
+            const successSection = document.getElementById('successSection');
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+
+            if (logoSection) logoSection.style.display = 'flex';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'flex';
+            if (dividerSection) dividerSection.style.display = 'flex';
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'flex';
+
+            if (mobileOtpSection) mobileOtpSection.classList.remove('show');
+            if (formSection) {
+                formSection.classList.remove('show');
+                formSection.style.display = '';
+            }
+            if (socialAuthSection) socialAuthSection.classList.remove('show');
+            if (successSection) successSection.classList.remove('show');
+
+            hideError();
+            hideSuccess();
+
+            const otpError = document.getElementById('errorMessageOtp');
+            const otpSuccess = document.getElementById('successMessageOtp');
+            if (otpError) {
+                otpError.classList.remove('show');
+                otpError.textContent = '';
+            }
+            if (otpSuccess) {
+                otpSuccess.classList.remove('show');
+                otpSuccess.textContent = '';
+            }
+
+            if (sendOtpButton) {
+                sendOtpButton.disabled = true;
+                sendOtpButton.textContent = 'Send OTP';
+            }
+            if (verifyOtpButton) {
+                verifyOtpButton.disabled = true;
+                verifyOtpButton.textContent = 'Verify OTP';
+            }
+            if (mobileOtpInput) {
+                mobileOtpInput.value = '';
+            }
+            otpInputs.forEach(input => {
+                if (input) input.value = '';
+            });
+
+            stopOtpCountdown();
+
+            if (form) {
+                form.reset();
+                updateButtonState();
+            }
+
+            pendingSignupData = null;
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Sumali na';
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Initialize mobile OTP functionality
@@ -2246,15 +2490,41 @@
             const sendOtpButton = document.getElementById('sendOtpButton');
             const verifyOtpButton = document.getElementById('verifyOtpButton');
             const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+            const countrySelectorOtp = document.getElementById('countrySelectorOtp');
 
             // Mobile input validation
             if (mobileOtpInput && sendOtpButton) {
                 mobileOtpInput.addEventListener('input', () => {
                     const mobile = mobileOtpInput.value.trim();
                     const digits = mobile.replace(/\D/g, '');
-                    const processedDigits = digits.replace(/^0+/, '');
-                    const isValid = processedDigits.length === 10;
+                    const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+                    const isValid = selectedCountryCode_iso === 'PH' ? processedDigits.length === 10 : processedDigits.length >= 5;
                     sendOtpButton.disabled = !isValid;
+                });
+                // Add masking on blur/focus for OTP mobile input
+                mobileOtpInput.addEventListener('blur', () => {
+                    mobileOtpInput.value = formatLocalForDisplay(mobileOtpInput.value, selectedCountryCode_iso);
+                });
+                mobileOtpInput.addEventListener('focus', () => {
+                    mobileOtpInput.value = (mobileOtpInput.value || '').replace(/\D/g, '');
+                });
+            }
+
+            // Bind OTP country selector for accessibility and keyboard support
+            if (countrySelectorOtp) {
+                countrySelectorOtp.setAttribute('role', 'button');
+                countrySelectorOtp.setAttribute('tabindex', '0');
+                countrySelectorOtp.setAttribute('aria-haspopup', 'listbox');
+                countrySelectorOtp.setAttribute('aria-expanded', 'false');
+                countrySelectorOtp.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleCountryPicker();
+                });
+                countrySelectorOtp.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleCountryPicker();
+                    }
                 });
             }
 
@@ -2341,6 +2611,56 @@
             }
         }
 
+        // OTP countdown timer
+        let otpCountdownTimer = null;
+        let otpCountdownSeconds = 0;
+
+        function startOtpCountdown() {
+            // Clear any existing timer
+            if (otpCountdownTimer) {
+                clearInterval(otpCountdownTimer);
+            }
+
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            if (!sendOtpButton) return;
+
+            otpCountdownSeconds = 99;
+            sendOtpButton.disabled = true;
+            updateOtpButtonText();
+
+            otpCountdownTimer = setInterval(() => {
+                otpCountdownSeconds--;
+                if (otpCountdownSeconds <= 0) {
+                    clearInterval(otpCountdownTimer);
+                    otpCountdownTimer = null;
+                    sendOtpButton.disabled = false;
+                    sendOtpButton.textContent = 'Send OTP';
+                } else {
+                    updateOtpButtonText();
+                }
+            }, 1000);
+        }
+
+        function updateOtpButtonText() {
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            if (sendOtpButton && otpCountdownSeconds > 0) {
+                sendOtpButton.textContent = `Resend in ${otpCountdownSeconds}s`;
+            }
+        }
+
+        function stopOtpCountdown() {
+            if (otpCountdownTimer) {
+                clearInterval(otpCountdownTimer);
+                otpCountdownTimer = null;
+            }
+            otpCountdownSeconds = 0;
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            if (sendOtpButton) {
+                sendOtpButton.disabled = false;
+                sendOtpButton.textContent = 'Send OTP';
+            }
+        }
+
         // Handle Send OTP
         function handleSendOtp() {
             const mobileOtpInput = document.getElementById('mobileOtpInput');
@@ -2348,14 +2668,15 @@
 
             const mobile = mobileOtpInput.value.trim();
             const digits = mobile.replace(/\D/g, '');
-            const processedDigits = digits.replace(/^0+/, '');
+            const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
             
-            if (processedDigits.length !== 10) {
-                showErrorOtp('Please enter a valid 10-digit Philippine mobile number');
+            if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
+                (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
+                showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
                 return;
             }
 
-            const fullMobileNumber = '+63' + processedDigits;
+            const fullMobileNumber = selectedCountryCode + processedDigits;
             
             // Disable button during request
             const sendOtpButton = document.getElementById('sendOtpButton');
@@ -2384,11 +2705,9 @@
                 return data;
             })
             .then(data => {
-                if (sendOtpButton) {
-                    sendOtpButton.disabled = false;
-                    sendOtpButton.textContent = 'Send OTP';
-                }
                 showSuccessOtp(data.message || 'OTP sent successfully!');
+                // Start countdown timer
+                startOtpCountdown();
                 // Focus first OTP input
                 const otp1 = document.getElementById('otp1');
                 if (otp1) otp1.focus();
@@ -2422,8 +2741,13 @@
 
             const mobile = mobileOtpInput.value.trim();
             const digits = mobile.replace(/\D/g, '');
-            const processedDigits = digits.replace(/^0+/, '');
-            const fullMobileNumber = '+63' + processedDigits;
+            const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+            const fullMobileNumber = selectedCountryCode + processedDigits;
+
+            if (pendingSignupData) {
+                pendingSignupData.mobileE164 = fullMobileNumber;
+                pendingSignupData.mobileDisplay = formatLocalForDisplay(mobile, selectedCountryCode_iso);
+            }
 
             const verifyOtpButton = document.getElementById('verifyOtpButton');
             if (verifyOtpButton) {
@@ -2451,12 +2775,49 @@
                 }
                 return data;
             })
-            .then(data => {
+            .then((verifyResponse) => {
+                // Manual signup path only (provider signup no longer uses OTP)
+                if (!pendingSignupData) {
+                    throw new Error('Signup data missing after OTP verification.');
+                }
+
+                const signupPayload = {
+                    email: pendingSignupData.email,
+                    password: pendingSignupData.password,
+                    mobile_no: pendingSignupData.mobileE164,
+                    full_name: 'Kas User',
+                    first_name: 'Kas',
+                    last_name: 'User'
+                };
+
+                return fetch(SIGNUP_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                        'apikey': window.SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify(signupPayload)
+                }).then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || data.message || `Signup failed: ${response.status}`);
+                    }
+                    console.log('Signup inputs captured:', {
+                        ...pendingSignupData,
+                        otp
+                    });
+                    pendingSignupData = null;
+                    return data;
+                });
+            })
+            .then(() => {
+                // Only reset button and show success for email/password flow
+                // Provider flow will redirect before reaching here
                 if (verifyOtpButton) {
                     verifyOtpButton.disabled = false;
                     verifyOtpButton.textContent = 'Verify OTP';
                 }
-                // On success, show success screen
                 showSuccessScreen();
             })
             .catch(error => {
@@ -2469,43 +2830,106 @@
             });
         }
 
-        // Social auth handlers - show instructions section
-        function handleGoogleSignup() {
-            showSocialAuthInstructions();
+        // Provider OAuth (web) using Supabase
+        let supabaseClient = null;
+        function initSupabase() {
+            if (window.supabase && SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, window.SUPABASE_ANON_KEY);
+            }
         }
 
-        function handleFacebookSignup() {
-            showSocialAuthInstructions();
+        function setProviderButtonsDisabled(disabled, text) {
+            const buttons = [
+                document.getElementById('googleAuthButton'),
+                document.getElementById('facebookAuthButton'),
+                document.getElementById('appleAuthButton')
+            ].filter(Boolean);
+            buttons.forEach(btn => {
+                btn.disabled = disabled;
+                if (text) {
+                    const span = btn.querySelector('span');
+                    if (span) span.textContent = text;
+                }
+            });
         }
 
-        function handleAppleSignup() {
-            showSocialAuthInstructions();
-        }
-
-        // Show social auth instructions section (same pattern as showEmailMobileForm)
-        function showSocialAuthInstructions() {
-            // Hide initial sections
-            const logoSection = document.getElementById('logoSection');
-            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
-            const dividerSection = document.getElementById('dividerSection');
-            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
-            const mobileOtpSection = document.getElementById('mobileOtpSection');
-            const socialAuthSection = document.getElementById('socialAuthSection');
-            const successSection = document.getElementById('successSection');
+        // Begin provider signup - direct OAuth (no OTP)
+        function beginProviderSignupWithOtp(provider) {
+            hideError();
+            hideSuccess();
+            if (!supabaseClient) initSupabase();
+            if (!supabaseClient) {
+                showError('Unable to initialize authentication. Please try again later.');
+                return;
+            }
             
-            // Hide all initial content
-            if (logoSection) logoSection.style.display = 'none';
-            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
-            if (dividerSection) dividerSection.style.display = 'none';
-            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
-            if (mobileOtpSection) mobileOtpSection.classList.remove('show');
-            if (successSection) successSection.classList.remove('show');
+            // Disable provider buttons during OAuth
+            setProviderButtonsDisabled(true, `Opening ${provider}...`);
             
-            // Show social auth instructions section
-            if (socialAuthSection) {
-                socialAuthSection.classList.add('show');
-                // Scroll to top
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Build web redirect URL - ensure it's HTTPS and properly formatted
+            let redirectTo = window.location.origin + window.location.pathname;
+            
+            // Remove trailing slash if present
+            redirectTo = redirectTo.replace(/\/$/, '');
+            
+            // Ensure HTTPS (required for OAuth redirects)
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                console.warn('OAuth requires HTTPS. Current protocol:', window.location.protocol);
+            }
+            
+            // Log for debugging
+            console.log('OAuth redirect URL:', redirectTo);
+            
+            supabaseClient.auth.signInWithOAuth({
+                provider: provider,
+                options: { 
+                    redirectTo: redirectTo,
+                    queryParams: {
+                        // Explicitly indicate this is a web flow
+                        access_type: 'offline',
+                        prompt: 'consent'
+                    }
+                }
+            }).then(({ error, data }) => {
+                if (error) {
+                    console.error('OAuth error:', error);
+                    setProviderButtonsDisabled(false);
+                    showError(error.message || 'Could not open provider sign in. Please try again.');
+                } else if (data?.url) {
+                    // If Supabase returns a URL, redirect manually to ensure web flow
+                    console.log('Redirecting to OAuth provider:', data.url);
+                    window.location.href = data.url;
+                }
+                // Otherwise, Supabase will handle redirect automatically
+            }).catch((error) => {
+                console.error('OAuth catch error:', error);
+                setProviderButtonsDisabled(false);
+                showError(error.message || 'Could not open provider sign in. Please try again.');
+            });
+        }
+        
+        // Expose globally for inline onclick
+        window.beginProviderSignupWithOtp = beginProviderSignupWithOtp;
+
+        async function handleProviderSignup(provider) {
+            try {
+                hideError();
+                setProviderButtonsDisabled(true, 'Continuing...');
+                if (!supabaseClient) initSupabase();
+                if (!supabaseClient) {
+                    throw new Error('Unable to initialize authentication. Please try again later.');
+                }
+                const redirectTo = window.location.origin + window.location.pathname;
+                const { error } = await supabaseClient.auth.signInWithOAuth({
+                    provider,
+                    options: { redirectTo }
+                });
+                if (error) throw error;
+                // Will redirect; no further code runs here
+            } catch (e) {
+                console.error('OAuth start error:', e);
+                setProviderButtonsDisabled(false);
+                showError(e.message || 'Failed to start provider sign-up. Please try again.');
             }
         }
 
@@ -2525,14 +2949,26 @@
             if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
-            if (mobileOtpSection) mobileOtpSection.classList.remove('show');
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.remove('show');
+                mobileOtpSection.style.display = 'none';
+            }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
+            
+            // Stop countdown timer when hiding OTP section
+            stopOtpCountdown();
             
             // Show success section
             if (successSection) {
                 successSection.classList.add('show');
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+                // Attempt to focus the success title for accessibility
+                const titleEl = successSection.querySelector('.success-title');
+                if (titleEl) {
+                    titleEl.setAttribute('tabindex', '-1');
+                    try { titleEl.focus(); } catch (e) {}
+                }
             }
         }
 
@@ -2558,6 +2994,19 @@
             return 'desktop';
         }
 
+        // Redirect to appropriate app store based on device
+        function redirectToStore() {
+            const device = detectDevice();
+            if (device === 'ios') {
+                window.location.replace('https://apps.apple.com/app/domo');
+            } else if (device === 'android') {
+                window.location.replace('https://play.google.com/store/apps/details?id=com.domohousehold');
+            } else {
+                // Desktop fallback - redirect to main landing page
+                window.location.replace('index.html');
+            }
+        }
+
         // Apply device detection to app store buttons
         function applyDeviceDetection() {
             const device = detectDevice();
@@ -2574,6 +3023,150 @@
         window.addEventListener('DOMContentLoaded', () => {
             applyDeviceDetection();
         });
+
+        // Parse OAuth tokens from URL hash or current URL
+        function parseOAuthTokens() {
+            // Check URL hash first (standard OAuth redirect)
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                const params = new URLSearchParams(hash);
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+                
+                if (accessToken && refreshToken) {
+                    return {
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                        expires_at: params.get('expires_at') ? parseInt(params.get('expires_at')) : null,
+                        token_type: params.get('token_type') || 'bearer'
+                    };
+                }
+            }
+            
+            // Check if current URL contains OAuth tokens (fallback for failed deeplink redirects)
+            // Sometimes browsers might preserve tokens in the URL even after failed deeplink attempts
+            const fullUrl = window.location.href;
+            const tokenMatch = fullUrl.match(/access_token=([^&]+)/);
+            const refreshMatch = fullUrl.match(/refresh_token=([^&]+)/);
+            
+            if (tokenMatch && refreshMatch) {
+                return {
+                    access_token: decodeURIComponent(tokenMatch[1]),
+                    refresh_token: decodeURIComponent(refreshMatch[1]),
+                    expires_at: null,
+                    token_type: 'bearer'
+                };
+            }
+            
+            return null;
+        }
+
+        // Process OAuth callback: set session, call signup-user, then redirect to app store
+        async function processOAuthCallback() {
+            try {
+                initSupabase();
+                if (!supabaseClient) {
+                    console.error('Supabase client not initialized');
+                    return;
+                }
+                
+                // Check for OAuth tokens in URL
+                const tokens = parseOAuthTokens();
+                let session = null;
+                
+                if (tokens) {
+                    console.log('Found OAuth tokens, setting session...');
+                    try {
+                        // Set the session using tokens from URL
+                        const { data: sessionData, error: sessionError } = await supabaseClient.auth.setSession({
+                            access_token: tokens.access_token,
+                            refresh_token: tokens.refresh_token
+                        });
+                        
+                        if (sessionError) {
+                            console.error('Error setting session:', sessionError);
+                            showError('Failed to complete sign in. Please try again.');
+                            return;
+                        }
+                        
+                        session = sessionData?.session;
+                        
+                        // Clean up URL - remove tokens from hash/URL
+                        const cleanUrl = window.location.pathname + window.location.search;
+                        window.history.replaceState(null, '', cleanUrl);
+                    } catch (hashError) {
+                        console.error('Error processing OAuth tokens:', hashError);
+                        showError('Failed to process sign in. Please try again.');
+                        return;
+                    }
+                } else {
+                    // Try to get existing session
+                    const { data, error } = await supabaseClient.auth.getSession();
+                    if (error) {
+                        console.warn('Session fetch error:', error);
+                        return;
+                    }
+                    session = data?.session;
+                }
+                
+                // If we have a session and haven't processed it yet, finalize signup and redirect
+                if (session && !sessionStorage.getItem('oauthProcessed')) {
+                    sessionStorage.setItem('oauthProcessed', '1');
+                    
+                    console.log('Processing provider signup...');
+                    
+                    // Call signup-user edge function to create user profile
+                    try {
+                        // Get role from URL params if available, default to 'kasambahay'
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const role = urlParams.get('role') || 'kasambahay';
+                        
+                        console.log('Calling signup-user with role:', role);
+                        
+                        const response = await fetch(SIGNUP_ENDPOINT, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`,
+                                'apikey': window.SUPABASE_ANON_KEY,
+                            },
+                            body: JSON.stringify({ role }),
+                        });
+                        
+                        // Handle response - 409 means user already exists, which is fine
+                        if (!response.ok && response.status !== 409) {
+                            const result = await response.json().catch(() => ({}));
+                            throw new Error(result.error || 'Failed to finalize signup');
+                        }
+                        
+                        console.log('Provider signup finalized successfully');
+                    } catch (finalizeError) {
+                        console.error('Finalize provider signup error:', finalizeError);
+                        // Still continue to store redirect to complete UX even if finalize fails
+                    }
+                    
+                    // Always redirect to app store after signup (or if signup fails)
+                    console.log('Redirecting to app store...');
+                    redirectToStore();
+                }
+            } catch (e) {
+                console.error('OAuth callback processing error:', e);
+                showError('An error occurred. Please try again.');
+            } finally {
+                setProviderButtonsDisabled(false);
+            }
+        }
+
+        // OAuth return handling on page load
+        window.addEventListener('DOMContentLoaded', processOAuthCallback);
+        
+        // Also check immediately in case DOMContentLoaded already fired
+        if (document.readyState === 'loading') {
+            // DOMContentLoaded will fire
+        } else {
+            // DOM already loaded, process immediately
+            processOAuthCallback();
+        }
 
         // Form initialization happens when showEmailMobileForm() is called
 
