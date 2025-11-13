@@ -2918,10 +2918,22 @@
                 if (!supabaseClient) {
                     throw new Error('Unable to initialize authentication. Please try again later.');
                 }
-                const redirectTo = window.location.origin + window.location.pathname;
+                // Build complete redirect URL with domain (required by Supabase)
+                let redirectTo = window.location.origin + window.location.pathname;
+                // Remove trailing slash if present
+                redirectTo = redirectTo.replace(/\/$/, '');
+
+                console.log('OAuth redirect URL:', redirectTo);
+
                 const { error } = await supabaseClient.auth.signInWithOAuth({
                     provider,
-                    options: { redirectTo }
+                    options: {
+                        redirectTo,
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'consent'
+                        }
+                    }
                 });
                 if (error) throw error;
                 // Will redirect; no further code runs here
