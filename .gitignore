@@ -1,1 +1,5 @@
 node_modules/*
+config-signing-key.pem
+config-signing-key.pub
+config.public.json.sig
+scripts/generate-public-config.js
