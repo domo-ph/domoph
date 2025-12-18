@@ -240,6 +240,24 @@
             display: flex;
         }
 
+        /* Mobile OTP Title Section */
+        .mobile-otp-title-section {
+            padding: 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-s);
+        }
+
+        .mobile-otp-title {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.1666666666666667em;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            text-align: left;
+            margin: 0;
+        }
+
         /* Mobile Input Container */
         .mobile-input-wrapper {
             display: flex;
@@ -1024,6 +1042,11 @@
                 line-height: 24px;
             }
 
+            .mobile-otp-title {
+                font-size: 20px;
+                line-height: 24px;
+            }
+
             .auth-button {
                 font-size: 13px;
                 padding: 10px var(--spacing-m);
@@ -1137,6 +1160,11 @@
             }
 
             .logo-title {
+                font-size: 24px;
+                line-height: 1.1666666666666667em;
+            }
+
+            .mobile-otp-title {
                 font-size: 24px;
                 line-height: 1.1666666666666667em;
             }
@@ -1504,6 +1532,11 @@
                 line-height: 24px;
             }
 
+            .mobile-otp-title {
+                font-size: 20px;
+                line-height: 24px;
+            }
+
             .social-auth-section {
                 padding: var(--spacing-sm) var(--spacing-m);
                 gap: var(--spacing-xs);
@@ -1686,6 +1719,11 @@
 
         <!-- Mobile OTP Section (Initially Hidden) -->
         <div id="mobileOtpSection" class="mobile-otp-section">
+            <!-- Title Section -->
+            <div class="mobile-otp-title-section">
+                <h1 class="mobile-otp-title">Anong ginagamit mong mobile number?</h1>
+            </div>
+
             <!-- Error Message -->
             <div id="errorMessageOtp" class="error-message" role="alert"></div>
 
@@ -2774,41 +2812,71 @@
                     }
                     return data;
                 })
-                .then((verifyResponse) => {
-                    // Manual signup path only (provider signup no longer uses OTP)
-                    if (!pendingSignupData) {
-                        throw new Error('Signup data missing after OTP verification.');
+                .then(async (verifyResponse) => {
+                    // Check if this is an OAuth user (has active session)
+                    let session = null;
+                    if (supabaseClient) {
+                        const { data: sessionData } = await supabaseClient.auth.getSession();
+                        session = sessionData?.session;
                     }
 
-                    const signupPayload = {
-                        email: pendingSignupData.email,
-                        password: pendingSignupData.password,
-                        mobile_no: pendingSignupData.mobileE164,
-                        full_name: 'Kas User',
-                        first_name: 'Kas',
-                        last_name: 'User'
-                    };
+                    if (session) {
+                        // OAuth user: Link mobile number to existing account
+                        console.log('OAuth user - linking mobile number to account');
+                        const linkMobileResponse = await fetch(SIGNUP_ENDPOINT, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`,
+                                'apikey': window.SUPABASE_ANON_KEY,
+                            },
+                            body: JSON.stringify({
+                                mobile_no: fullMobileNumber,
+                            }),
+                        });
 
-                    return fetch(SIGNUP_ENDPOINT, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                            'apikey': window.SUPABASE_ANON_KEY
-                        },
-                        body: JSON.stringify(signupPayload)
-                    }).then(async response => {
-                        const data = await response.json();
-                        if (!response.ok) {
-                            throw new Error(data.error || data.message || `Signup failed: ${response.status}`);
+                        if (!linkMobileResponse.ok && linkMobileResponse.status !== 409) {
+                            const result = await linkMobileResponse.json().catch(() => ({}));
+                            throw new Error(result.error || 'Failed to link mobile number');
                         }
+
+                        console.log('Mobile number linked successfully');
+                        return { success: true };
+                    } else if (pendingSignupData) {
+                        // Manual signup path: Create new user account
+                        const signupPayload = {
+                            email: pendingSignupData.email,
+                            password: pendingSignupData.password,
+                            mobile_no: pendingSignupData.mobileE164,
+                            full_name: 'Kas User',
+                            first_name: 'Kas',
+                            last_name: 'User'
+                        };
+
+                        const signupResponse = await fetch(SIGNUP_ENDPOINT, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                                'apikey': window.SUPABASE_ANON_KEY
+                            },
+                            body: JSON.stringify(signupPayload)
+                        });
+
+                        const data = await signupResponse.json();
+                        if (!signupResponse.ok) {
+                            throw new Error(data.error || data.message || `Signup failed: ${signupResponse.status}`);
+                        }
+
                         console.log('Signup inputs captured:', {
                             ...pendingSignupData,
                             otp
                         });
                         pendingSignupData = null;
                         return data;
-                    });
+                    } else {
+                        throw new Error('Signup data missing after OTP verification.');
+                    }
                 })
                 .then(() => {
                     // Only reset button and show success for email/password flow
@@ -2968,6 +3036,85 @@
                 setProviderButtonsDisabled(false);
                 showError(e.message || 'Failed to start provider sign-up. Please try again.');
             }
+        }
+
+        // Show mobile OTP screen after OAuth signup
+        function showMobileOtpScreenAfterOAuth() {
+            // Ensure supabaseClient is initialized for OTP verification
+            if (!supabaseClient) initSupabase();
+            
+            // Hide all sections
+            const logoSection = document.getElementById('logoSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const formSection = document.getElementById('formSection');
+            const socialAuthSection = document.getElementById('socialAuthSection');
+            const successSection = document.getElementById('successSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+
+            // Hide all content
+            if (logoSection) logoSection.style.display = 'none';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.display = 'none';
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (formSection) {
+                formSection.classList.remove('show');
+                formSection.style.display = 'none';
+            }
+            if (socialAuthSection) socialAuthSection.classList.remove('show');
+            if (successSection) successSection.classList.remove('show');
+
+            // Initialize mobile OTP if not already initialized
+            initializeMobileOtp();
+
+            // Show mobile OTP section
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.add('show');
+                mobileOtpSection.style.display = 'flex';
+            }
+
+            // Reset OTP section state
+            const successMessageOtp = document.getElementById('successMessageOtp');
+            const errorMessageOtp = document.getElementById('errorMessageOtp');
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+
+            stopOtpCountdown();
+
+            if (successMessageOtp) {
+                successMessageOtp.classList.remove('show');
+                successMessageOtp.textContent = '';
+            }
+            if (errorMessageOtp) {
+                errorMessageOtp.classList.remove('show');
+                errorMessageOtp.textContent = '';
+            }
+
+            if (sendOtpButton) {
+                sendOtpButton.disabled = true; // Disabled until valid mobile number is entered
+                sendOtpButton.textContent = 'Send OTP';
+            }
+            if (verifyOtpButton) {
+                verifyOtpButton.disabled = true;
+                verifyOtpButton.textContent = 'Verify OTP';
+            }
+            if (mobileOtpInput) {
+                mobileOtpInput.value = '';
+            }
+            otpInputs.forEach(input => {
+                if (input) input.value = '';
+            });
+
+            // Focus mobile input
+            if (mobileOtpInput) {
+                setTimeout(() => mobileOtpInput.focus(), 100);
+            }
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Show success screen after OTP verification (same pattern as showSocialAuthInstructions)
@@ -3220,12 +3367,12 @@
                         console.log('Provider signup finalized successfully');
                     } catch (finalizeError) {
                         console.error('Finalize provider signup error:', finalizeError);
-                        // Still show success screen even if finalize fails
+                        // Still show mobile OTP screen even if finalize fails
                     }
 
-                    // Show success screen instead of redirecting to app store
-                    console.log('Showing success screen...');
-                    showSuccessScreen();
+                    // Show mobile OTP screen to collect mobile number
+                    console.log('Showing mobile OTP screen...');
+                    showMobileOtpScreenAfterOAuth();
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
                     // Don't show error - user might just be visiting the page normally
