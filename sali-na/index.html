@@ -2352,11 +2352,89 @@
                 return;
             }
 
+            const formSection = document.getElementById('formSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const successMessageOtp = document.getElementById('successMessageOtp');
+            const errorMessageOtp = document.getElementById('errorMessageOtp');
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+
+            // Hide form section
+            if (formSection) {
+                formSection.classList.remove('show');
+                formSection.style.display = 'none';
+            }
+
+            // If email is entered, show mobile OTP section to ask for mobile number
             if (idIsEmail) {
-                showError('Please enter a valid mobile number to continue with OTP verification');
+                const emailValue = extraEmail || identifier;
+                
+                pendingSignupData = {
+                    identifier,
+                    email: emailValue,
+                    password,
+                    mobileE164: null,
+                    mobileDisplay: null,
+                    countryCode: selectedCountryCode,
+                    countryIso: selectedCountryCode_iso
+                };
+
+                initializeMobileOtp();
+
+                // Hide OTP verification section if visible
+                if (otpVerificationSection) {
+                    otpVerificationSection.classList.remove('show');
+                    otpVerificationSection.style.display = 'none';
+                }
+
+                // Show mobile OTP section
+                if (mobileOtpSection) {
+                    mobileOtpSection.classList.add('show');
+                    mobileOtpSection.style.display = 'flex';
+                }
+
+                // Clear mobile OTP input
+                const mobileOtpInputEl = document.getElementById('mobileOtpInput');
+                if (mobileOtpInputEl) {
+                    mobileOtpInputEl.value = '';
+                    mobileOtpInputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
+                stopOtpCountdown();
+
+                if (successMessageOtp) {
+                    successMessageOtp.classList.remove('show');
+                    successMessageOtp.textContent = '';
+                }
+                if (errorMessageOtp) {
+                    errorMessageOtp.classList.remove('show');
+                    errorMessageOtp.textContent = '';
+                }
+
+                if (sendOtpButton) {
+                    sendOtpButton.disabled = true;
+                    sendOtpButton.textContent = 'Send OTP';
+                }
+                if (verifyOtpButton) {
+                    verifyOtpButton.disabled = true;
+                    verifyOtpButton.textContent = 'Verify';
+                }
+                otpInputs.forEach(input => {
+                    if (input) input.value = '';
+                });
+
+                const mobileOtpInputFocus = document.getElementById('mobileOtpInput');
+                if (mobileOtpInputFocus) {
+                    mobileOtpInputFocus.focus();
+                }
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
 
+            // If mobile number is entered, validate and send OTP directly
             if (!validateMobile(identifier, selectedCountryCode_iso)) {
                 if (selectedCountryCode_iso === 'PH') {
                     showError('Please enter a valid 10-digit Philippine mobile number');
@@ -2386,36 +2464,15 @@
             };
 
             submitButton.disabled = true;
-            submitButton.textContent = 'Preparing OTP...';
+            submitButton.textContent = 'Sending OTP...';
 
-            const formSection = document.getElementById('formSection');
-            const mobileOtpSection = document.getElementById('mobileOtpSection');
-            const successMessageOtp = document.getElementById('successMessageOtp');
-            const errorMessageOtp = document.getElementById('errorMessageOtp');
-            const sendOtpButton = document.getElementById('sendOtpButton');
-            const verifyOtpButton = document.getElementById('verifyOtpButton');
-            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
-
-            if (formSection) {
-                formSection.classList.remove('show');
-                formSection.style.display = 'none';
-            }
-
-            initializeMobileOtp();
-
+            // Hide mobile OTP section
             if (mobileOtpSection) {
-                mobileOtpSection.classList.add('show');
-                mobileOtpSection.style.display = 'flex';
+                mobileOtpSection.classList.remove('show');
+                mobileOtpSection.style.display = 'none';
             }
 
-            const mobileOtpInputEl = document.getElementById('mobileOtpInput');
-            if (mobileOtpInputEl) {
-                mobileOtpInputEl.value = displayMobile;
-                mobileOtpInputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-
-            stopOtpCountdown();
-
+            // Clear any previous error/success messages
             if (successMessageOtp) {
                 successMessageOtp.classList.remove('show');
                 successMessageOtp.textContent = '';
@@ -2425,27 +2482,11 @@
                 errorMessageOtp.textContent = '';
             }
 
-            if (sendOtpButton) {
-                sendOtpButton.disabled = false;
-                sendOtpButton.textContent = 'Send OTP';
-            }
-            if (verifyOtpButton) {
-                verifyOtpButton.disabled = true;
-                verifyOtpButton.textContent = 'Verify';
-            }
-            otpInputs.forEach(input => {
-                if (input) input.value = '';
-            });
+            // Send OTP and show verification section directly
+            sendOtpAndShowVerification(fullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
 
             submitButton.disabled = false;
             submitButton.textContent = 'Sumali na';
-
-            const mobileOtpInputFocus = document.getElementById('mobileOtpInput');
-            if (mobileOtpInputFocus) {
-                mobileOtpInputFocus.focus();
-            }
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Handle back button
@@ -2796,36 +2837,10 @@
             }
         }
 
-        // Handle Send OTP
-        function handleSendOtp() {
-            let mobile = '';
-            let fullMobileNumber = '';
-            
-            // Check if we have a stored mobile number (for resend)
-            if (currentVerifyingMobileNumber) {
-                fullMobileNumber = currentVerifyingMobileNumber;
-                // Extract mobile digits for validation
-                const storedDigits = currentVerifyingMobileNumber.replace(/^\+/, '').replace(/\D/g, '');
-                mobile = storedDigits;
-            } else {
-                // Get from input field
-                const mobileOtpInput = document.getElementById('mobileOtpInput');
-                if (!mobileOtpInput) return;
-
-                mobile = mobileOtpInput.value.trim();
-                const digits = mobile.replace(/\D/g, '');
-                const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
-
-                if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
-                    (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
-                    showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
-                    return;
-                }
-
-                fullMobileNumber = selectedCountryCode + processedDigits;
-                // Store for resend
-                currentVerifyingMobileNumber = fullMobileNumber;
-            }
+        // Helper function to send OTP and transition to verification section
+        function sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, countryIso) {
+            // Store for resend
+            currentVerifyingMobileNumber = fullMobileNumber;
 
             // Disable button during request
             const sendOtpButton = document.getElementById('sendOtpButton');
@@ -2861,11 +2876,7 @@
                 })
                 .then(data => {
                     // Format mobile number for display
-                    // Extract country code and digits from fullMobileNumber
-                    const countryCodeMatch = fullMobileNumber.match(/^(\+\d+)(.+)$/);
-                    const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
-                    const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : mobile.replace(/\D/g, '');
-                    const displayMobile = formatLocalForDisplay(mobileDigits, selectedCountryCode_iso);
+                    const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
                     const formattedMobileNumber = `${countryCode} ${displayMobile}`;
                     
                     // Hide mobile OTP section and show OTP verification section
@@ -2931,6 +2942,55 @@
                     }
                     showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
                 });
+        }
+
+        // Handle Send OTP
+        function handleSendOtp() {
+            let mobile = '';
+            let fullMobileNumber = '';
+            
+            // Check if we have a stored mobile number (for resend)
+            if (currentVerifyingMobileNumber) {
+                fullMobileNumber = currentVerifyingMobileNumber;
+                // Extract mobile digits for validation
+                const storedDigits = currentVerifyingMobileNumber.replace(/^\+/, '').replace(/\D/g, '');
+                mobile = storedDigits;
+                
+                // Use stored country code info
+                const countryCodeMatch = fullMobileNumber.match(/^(\+\d+)(.+)$/);
+                const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
+                const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : storedDigits;
+                
+                sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, selectedCountryCode_iso);
+                return;
+            } else {
+                // Get from input field
+                const mobileOtpInput = document.getElementById('mobileOtpInput');
+                if (!mobileOtpInput) return;
+
+                mobile = mobileOtpInput.value.trim();
+                const digits = mobile.replace(/\D/g, '');
+                const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+
+                if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
+                    (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
+                    showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
+                    return;
+                }
+
+                fullMobileNumber = selectedCountryCode + processedDigits;
+                const displayMobile = formatLocalForDisplay(mobile, selectedCountryCode_iso);
+                
+                // Update pendingSignupData with mobile number if it exists (e.g., when email was entered first)
+                if (pendingSignupData) {
+                    pendingSignupData.mobileE164 = fullMobileNumber;
+                    pendingSignupData.mobileDisplay = displayMobile;
+                    pendingSignupData.countryCode = selectedCountryCode;
+                    pendingSignupData.countryIso = selectedCountryCode_iso;
+                }
+                
+                sendOtpAndShowVerification(fullMobileNumber, processedDigits, selectedCountryCode, selectedCountryCode_iso);
+            }
         }
 
         // Handle Verify OTP
