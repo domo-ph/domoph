@@ -2837,17 +2837,39 @@
             }
         }
 
-        function setProviderButtonsDisabled(disabled, text) {
+        // Store original button texts
+        const originalButtonTexts = new Map();
+
+        function setProviderButtonsDisabled(disabled, text, specificButtonId = null) {
             const buttons = [
                 document.getElementById('googleAuthButton'),
                 document.getElementById('facebookAuthButton'),
                 document.getElementById('appleAuthButton')
             ].filter(Boolean);
+            
             buttons.forEach(btn => {
-                btn.disabled = disabled;
-                if (text) {
+                // Store original text if not already stored
+                if (!originalButtonTexts.has(btn.id)) {
                     const span = btn.querySelector('span');
-                    if (span) span.textContent = text;
+                    if (span) {
+                        originalButtonTexts.set(btn.id, span.textContent);
+                    }
+                }
+                
+                btn.disabled = disabled;
+                
+                const span = btn.querySelector('span');
+                if (span) {
+                    if (text && (!specificButtonId || btn.id === specificButtonId)) {
+                        // Only update text for the specific button if specified, or all if not
+                        span.textContent = text;
+                    } else if (!disabled && !text) {
+                        // Restore original text when re-enabling
+                        const originalText = originalButtonTexts.get(btn.id);
+                        if (originalText) {
+                            span.textContent = originalText;
+                        }
+                    }
                 }
             });
         }
@@ -2862,8 +2884,12 @@
                 return;
             }
 
-            // Disable provider buttons during OAuth
-            setProviderButtonsDisabled(true, `Opening ${provider}...`);
+            // Capitalize provider name for display
+            const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
+            const buttonId = `${provider}AuthButton`;
+            
+            // Disable all buttons, but only update text on the clicked button
+            setProviderButtonsDisabled(true, `Opening ${providerName}...`, buttonId);
 
             // Build web redirect URL - ensure it's HTTPS and properly formatted
             let redirectTo = window.location.origin + window.location.pathname;
