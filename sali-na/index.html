@@ -240,6 +240,37 @@
             display: flex;
         }
 
+        /* OTP Verification Section */
+        .otp-verification-section {
+            display: none;
+            flex-direction: column;
+            gap: var(--spacing-xl);
+            padding: 0 var(--spacing-m);
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .otp-verification-section.show {
+            display: flex;
+        }
+
+        /* OTP Instruction Text */
+        .otp-instruction-text {
+            padding: 0;
+            width: 100%;
+        }
+
+        .otp-instruction-text p {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.2857142857142858em;
+            letter-spacing: -0.006em;
+            color: var(--surface-subtle);
+            text-align: left;
+            margin: 0;
+            word-wrap: break-word;
+        }
+
         /* Mobile OTP Title Section */
         .mobile-otp-title-section {
             padding: 20px 0 0;
@@ -1750,6 +1781,20 @@
             <div class="button-container-send">
                 <button type="button" id="sendOtpButton" class="btn-send-otp" disabled>Send OTP</button>
             </div>
+        </div>
+
+        <!-- OTP Verification Section (Initially Hidden) -->
+        <div id="otpVerificationSection" class="otp-verification-section">
+            <!-- Title Section -->
+            <div class="mobile-otp-title-section">
+                <h1 class="mobile-otp-title">Verify natin ang mobile!</h1>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessageOtpVerify" class="error-message" role="alert"></div>
+
+            <!-- Success Message -->
+            <div id="successMessageOtpVerify" class="success-message" role="status"></div>
 
             <!-- OTP Input Section -->
             <div class="otp-section">
@@ -1766,9 +1811,19 @@
                 </div>
             </div>
 
+            <!-- Resend OTP Button -->
+            <div class="button-container-send">
+                <button type="button" id="resendOtpButton" class="btn-send-otp" disabled>Resend in 0s</button>
+            </div>
+
+            <!-- Instruction Text -->
+            <div class="otp-instruction-text">
+                <p id="otpInstructionText">Nag-send kami ng OTP sa +63 917 123 4567. Ilagay lang sa taas para ma-verify ang number mo.</p>
+            </div>
+
             <!-- Verify OTP Button -->
             <div class="button-container">
-                <button type="button" id="verifyOtpButton" class="btn-verify-otp" disabled>Verify OTP</button>
+                <button type="button" id="verifyOtpButton" class="btn-verify-otp" disabled>Verify</button>
             </div>
         </div>
 
@@ -1869,8 +1924,8 @@
                 <div class="success-text-container">
                     <h2 class="success-title">Nakaregister na tayo!</h2>
                     <p class="success-description">
-                        Pwede mo na i-download ang app at mag-login gamit ang account mo.<br><br>
-                        I-tap ang button sa baba para i-download ang app.
+                        Susunod, i-dadownload natin ang app sa App Store.<br><br>
+                        Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
                     </p>
                     <div class="app-store-buttons">
                         <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank"
@@ -1965,6 +2020,7 @@
         let selectedCountryFlag = '🇵🇭';
         let selectedCountryCode_iso = 'PH';
         let pendingSignupData = null;
+        let currentVerifyingMobileNumber = null; // Store mobile number being verified for resend
 
         // Common countries list (matching React Native MobileInput)
         const countries = [
@@ -2375,7 +2431,7 @@
             }
             if (verifyOtpButton) {
                 verifyOtpButton.disabled = true;
-                verifyOtpButton.textContent = 'Verify OTP';
+                verifyOtpButton.textContent = 'Verify';
             }
             otpInputs.forEach(input => {
                 if (input) input.value = '';
@@ -2490,7 +2546,7 @@
             }
             if (verifyOtpButton) {
                 verifyOtpButton.disabled = true;
-                verifyOtpButton.textContent = 'Verify OTP';
+                verifyOtpButton.textContent = 'Verify';
             }
             if (mobileOtpInput) {
                 mobileOtpInput.value = '';
@@ -2616,6 +2672,12 @@
                 sendOtpButton.addEventListener('click', handleSendOtp);
             }
 
+            // Resend OTP handler
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            if (resendOtpButton) {
+                resendOtpButton.addEventListener('click', handleSendOtp);
+            }
+
             // Verify OTP handler
             if (verifyOtpButton) {
                 verifyOtpButton.addEventListener('click', handleVerifyOtp);
@@ -2624,27 +2686,63 @@
 
         // Show error message (for OTP section)
         function showErrorOtp(message) {
-            const errorMessage = document.getElementById('errorMessageOtp');
-            const successMessage = document.getElementById('successMessageOtp');
-            if (errorMessage) {
-                errorMessage.textContent = message;
-                errorMessage.classList.add('show');
-            }
-            if (successMessage) {
-                successMessage.classList.remove('show');
+            // Check which section is visible
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const isVerificationVisible = otpVerificationSection && otpVerificationSection.classList.contains('show');
+            
+            if (isVerificationVisible) {
+                // Show in OTP verification section
+                const errorMessage = document.getElementById('errorMessageOtpVerify');
+                const successMessage = document.getElementById('successMessageOtpVerify');
+                if (errorMessage) {
+                    errorMessage.textContent = message;
+                    errorMessage.classList.add('show');
+                }
+                if (successMessage) {
+                    successMessage.classList.remove('show');
+                }
+            } else {
+                // Show in mobile OTP section
+                const errorMessage = document.getElementById('errorMessageOtp');
+                const successMessage = document.getElementById('successMessageOtp');
+                if (errorMessage) {
+                    errorMessage.textContent = message;
+                    errorMessage.classList.add('show');
+                }
+                if (successMessage) {
+                    successMessage.classList.remove('show');
+                }
             }
         }
 
         // Show success message (for OTP section)
         function showSuccessOtp(message) {
-            const successMessage = document.getElementById('successMessageOtp');
-            const errorMessage = document.getElementById('errorMessageOtp');
-            if (successMessage) {
-                successMessage.textContent = message;
-                successMessage.classList.add('show');
-            }
-            if (errorMessage) {
-                errorMessage.classList.remove('show');
+            // Check which section is visible
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const isVerificationVisible = otpVerificationSection && otpVerificationSection.classList.contains('show');
+            
+            if (isVerificationVisible) {
+                // Show in OTP verification section
+                const successMessage = document.getElementById('successMessageOtpVerify');
+                const errorMessage = document.getElementById('errorMessageOtpVerify');
+                if (successMessage) {
+                    successMessage.textContent = message;
+                    successMessage.classList.add('show');
+                }
+                if (errorMessage) {
+                    errorMessage.classList.remove('show');
+                }
+            } else {
+                // Show in mobile OTP section
+                const successMessage = document.getElementById('successMessageOtp');
+                const errorMessage = document.getElementById('errorMessageOtp');
+                if (successMessage) {
+                    successMessage.textContent = message;
+                    successMessage.classList.add('show');
+                }
+                if (errorMessage) {
+                    errorMessage.classList.remove('show');
+                }
             }
         }
 
@@ -2658,11 +2756,11 @@
                 clearInterval(otpCountdownTimer);
             }
 
-            const sendOtpButton = document.getElementById('sendOtpButton');
-            if (!sendOtpButton) return;
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            if (!resendOtpButton) return;
 
             otpCountdownSeconds = 99;
-            sendOtpButton.disabled = true;
+            resendOtpButton.disabled = true;
             updateOtpButtonText();
 
             otpCountdownTimer = setInterval(() => {
@@ -2670,8 +2768,8 @@
                 if (otpCountdownSeconds <= 0) {
                     clearInterval(otpCountdownTimer);
                     otpCountdownTimer = null;
-                    sendOtpButton.disabled = false;
-                    sendOtpButton.textContent = 'Send OTP';
+                    resendOtpButton.disabled = false;
+                    resendOtpButton.textContent = 'Resend OTP';
                 } else {
                     updateOtpButtonText();
                 }
@@ -2679,9 +2777,9 @@
         }
 
         function updateOtpButtonText() {
-            const sendOtpButton = document.getElementById('sendOtpButton');
-            if (sendOtpButton && otpCountdownSeconds > 0) {
-                sendOtpButton.textContent = `Resend in ${otpCountdownSeconds}s`;
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            if (resendOtpButton && otpCountdownSeconds > 0) {
+                resendOtpButton.textContent = `Resend in ${otpCountdownSeconds}s`;
             }
         }
 
@@ -2691,35 +2789,55 @@
                 otpCountdownTimer = null;
             }
             otpCountdownSeconds = 0;
-            const sendOtpButton = document.getElementById('sendOtpButton');
-            if (sendOtpButton) {
-                sendOtpButton.disabled = false;
-                sendOtpButton.textContent = 'Send OTP';
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            if (resendOtpButton) {
+                resendOtpButton.disabled = false;
+                resendOtpButton.textContent = 'Resend OTP';
             }
         }
 
         // Handle Send OTP
         function handleSendOtp() {
-            const mobileOtpInput = document.getElementById('mobileOtpInput');
-            if (!mobileOtpInput) return;
+            let mobile = '';
+            let fullMobileNumber = '';
+            
+            // Check if we have a stored mobile number (for resend)
+            if (currentVerifyingMobileNumber) {
+                fullMobileNumber = currentVerifyingMobileNumber;
+                // Extract mobile digits for validation
+                const storedDigits = currentVerifyingMobileNumber.replace(/^\+/, '').replace(/\D/g, '');
+                mobile = storedDigits;
+            } else {
+                // Get from input field
+                const mobileOtpInput = document.getElementById('mobileOtpInput');
+                if (!mobileOtpInput) return;
 
-            const mobile = mobileOtpInput.value.trim();
-            const digits = mobile.replace(/\D/g, '');
-            const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+                mobile = mobileOtpInput.value.trim();
+                const digits = mobile.replace(/\D/g, '');
+                const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
 
-            if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
-                (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
-                showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
-                return;
+                if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
+                    (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
+                    showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
+                    return;
+                }
+
+                fullMobileNumber = selectedCountryCode + processedDigits;
+                // Store for resend
+                currentVerifyingMobileNumber = fullMobileNumber;
             }
-
-            const fullMobileNumber = selectedCountryCode + processedDigits;
 
             // Disable button during request
             const sendOtpButton = document.getElementById('sendOtpButton');
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            
             if (sendOtpButton) {
                 sendOtpButton.disabled = true;
                 sendOtpButton.textContent = 'Sending...';
+            }
+            if (resendOtpButton) {
+                resendOtpButton.disabled = true;
+                resendOtpButton.textContent = 'Sending...';
             }
 
             // Call Supabase Edge Function to send OTP
@@ -2742,18 +2860,74 @@
                     return data;
                 })
                 .then(data => {
-                    showSuccessOtp(data.message || 'OTP sent successfully!');
+                    // Format mobile number for display
+                    // Extract country code and digits from fullMobileNumber
+                    const countryCodeMatch = fullMobileNumber.match(/^(\+\d+)(.+)$/);
+                    const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
+                    const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : mobile.replace(/\D/g, '');
+                    const displayMobile = formatLocalForDisplay(mobileDigits, selectedCountryCode_iso);
+                    const formattedMobileNumber = `${countryCode} ${displayMobile}`;
+                    
+                    // Hide mobile OTP section and show OTP verification section
+                    const mobileOtpSection = document.getElementById('mobileOtpSection');
+                    const otpVerificationSection = document.getElementById('otpVerificationSection');
+                    
+                    if (mobileOtpSection) {
+                        mobileOtpSection.classList.remove('show');
+                        mobileOtpSection.style.display = 'none';
+                    }
+                    
+                    if (otpVerificationSection) {
+                        otpVerificationSection.classList.add('show');
+                        otpVerificationSection.style.display = 'flex';
+                    }
+                    
+                    // Update instruction text with mobile number
+                    const instructionText = document.getElementById('otpInstructionText');
+                    if (instructionText) {
+                        instructionText.textContent = `Nag-send kami ng OTP sa ${formattedMobileNumber}. Ilagay lang sa taas para ma-verify ang number mo.`;
+                    }
+                    
+                    // Clear any previous error/success messages
+                    const errorMessageOtpVerify = document.getElementById('errorMessageOtpVerify');
+                    const successMessageOtpVerify = document.getElementById('successMessageOtpVerify');
+                    if (errorMessageOtpVerify) {
+                        errorMessageOtpVerify.classList.remove('show');
+                        errorMessageOtpVerify.textContent = '';
+                    }
+                    if (successMessageOtpVerify) {
+                        successMessageOtpVerify.classList.remove('show');
+                        successMessageOtpVerify.textContent = '';
+                    }
+                    
+                    // Reset OTP inputs
+                    const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+                    otpInputs.forEach(input => {
+                        if (input) input.value = '';
+                    });
+                    
                     // Start countdown timer
                     startOtpCountdown();
+                    
                     // Focus first OTP input
                     const otp1 = document.getElementById('otp1');
-                    if (otp1) otp1.focus();
+                    if (otp1) {
+                        setTimeout(() => otp1.focus(), 100);
+                    }
+                    
+                    // Scroll to top
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 })
                 .catch(error => {
                     console.error('Send OTP error:', error);
                     if (sendOtpButton) {
                         sendOtpButton.disabled = false;
                         sendOtpButton.textContent = 'Send OTP';
+                    }
+                    const resendOtpButton = document.getElementById('resendOtpButton');
+                    if (resendOtpButton) {
+                        resendOtpButton.disabled = false;
+                        resendOtpButton.textContent = 'Resend OTP';
                     }
                     showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
                 });
@@ -2769,21 +2943,29 @@
                 return;
             }
 
-            // Get mobile number from input
-            const mobileOtpInput = document.getElementById('mobileOtpInput');
-            if (!mobileOtpInput) {
-                showErrorOtp('Mobile number not found');
-                return;
-            }
+            // Get mobile number from stored value (used when OTP verification section is visible)
+            let fullMobileNumber = null;
+            
+            if (currentVerifyingMobileNumber) {
+                // Use stored mobile number from OTP send
+                fullMobileNumber = currentVerifyingMobileNumber;
+            } else {
+                // Fallback: Get from input field (for backward compatibility)
+                const mobileOtpInput = document.getElementById('mobileOtpInput');
+                if (!mobileOtpInput) {
+                    showErrorOtp('Mobile number not found');
+                    return;
+                }
 
-            const mobile = mobileOtpInput.value.trim();
-            const digits = mobile.replace(/\D/g, '');
-            const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
-            const fullMobileNumber = selectedCountryCode + processedDigits;
-
-            if (pendingSignupData) {
-                pendingSignupData.mobileE164 = fullMobileNumber;
-                pendingSignupData.mobileDisplay = formatLocalForDisplay(mobile, selectedCountryCode_iso);
+                const mobile = mobileOtpInput.value.trim();
+                const digits = mobile.replace(/\D/g, '');
+                const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+                fullMobileNumber = selectedCountryCode + processedDigits;
+                
+                if (pendingSignupData) {
+                    pendingSignupData.mobileE164 = fullMobileNumber;
+                    pendingSignupData.mobileDisplay = formatLocalForDisplay(mobile, selectedCountryCode_iso);
+                }
             }
 
             const verifyOtpButton = document.getElementById('verifyOtpButton');
@@ -2883,7 +3065,7 @@
                     // Provider flow will redirect before reaching here
                     if (verifyOtpButton) {
                         verifyOtpButton.disabled = false;
-                        verifyOtpButton.textContent = 'Verify OTP';
+                        verifyOtpButton.textContent = 'Verify';
                     }
                     showSuccessScreen();
                 })
@@ -2891,7 +3073,7 @@
                     console.error('Verify OTP error:', error);
                     if (verifyOtpButton) {
                         verifyOtpButton.disabled = false;
-                        verifyOtpButton.textContent = 'Verify OTP';
+                        verifyOtpButton.textContent = 'Verify';
                     }
                     showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
                 });
@@ -3053,6 +3235,7 @@
             const socialAuthSection = document.getElementById('socialAuthSection');
             const successSection = document.getElementById('successSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
 
             // Hide all content
             console.log('Hiding sections, showing mobile OTP section');
@@ -3072,6 +3255,10 @@
             }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
             if (successSection) successSection.classList.remove('show');
+            if (otpVerificationSection) {
+                otpVerificationSection.classList.remove('show');
+                otpVerificationSection.style.display = 'none';
+            }
 
             // Initialize mobile OTP if not already initialized
             initializeMobileOtp();
@@ -3110,8 +3297,16 @@
             }
             if (verifyOtpButton) {
                 verifyOtpButton.disabled = true;
-                verifyOtpButton.textContent = 'Verify OTP';
+                verifyOtpButton.textContent = 'Verify';
             }
+            
+            // Reset resend button
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            if (resendOtpButton) {
+                resendOtpButton.disabled = true;
+                resendOtpButton.textContent = 'Resend in 0s';
+            }
+            
             if (mobileOtpInput) {
                 mobileOtpInput.value = '';
             }
@@ -3136,6 +3331,7 @@
             const dividerSection = document.getElementById('dividerSection');
             const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
             const socialAuthSection = document.getElementById('socialAuthSection');
             const successSection = document.getElementById('successSection');
 
@@ -3148,10 +3344,17 @@
                 mobileOtpSection.classList.remove('show');
                 mobileOtpSection.style.display = 'none';
             }
+            if (otpVerificationSection) {
+                otpVerificationSection.classList.remove('show');
+                otpVerificationSection.style.display = 'none';
+            }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
 
             // Stop countdown timer when hiding OTP section
             stopOtpCountdown();
+            
+            // Clear stored mobile number
+            currentVerifyingMobileNumber = null;
 
             // Show success section
             if (successSection) {
