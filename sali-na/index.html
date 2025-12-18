@@ -3040,6 +3040,7 @@
 
         // Show mobile OTP screen after OAuth signup
         function showMobileOtpScreenAfterOAuth() {
+            console.log('showMobileOtpScreenAfterOAuth called');
             // Ensure supabaseClient is initialized for OTP verification
             if (!supabaseClient) initSupabase();
             
@@ -3054,8 +3055,15 @@
             const mobileOtpSection = document.getElementById('mobileOtpSection');
 
             // Hide all content
-            if (logoSection) logoSection.style.display = 'none';
-            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+            console.log('Hiding sections, showing mobile OTP section');
+            if (logoSection) {
+                logoSection.style.display = 'none';
+                console.log('Logo section hidden');
+            }
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.display = 'none';
+                console.log('Social auth buttons section hidden');
+            }
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
             if (formSection) {
@@ -3072,6 +3080,9 @@
             if (mobileOtpSection) {
                 mobileOtpSection.classList.add('show');
                 mobileOtpSection.style.display = 'flex';
+                console.log('Mobile OTP section shown');
+            } else {
+                console.error('Mobile OTP section element not found!');
             }
 
             // Reset OTP section state
@@ -3276,8 +3287,15 @@
                 console.log('URL search:', window.location.search);
 
                 // Check if we've already processed this callback
-                if (sessionStorage.getItem('oauthProcessed')) {
-                    console.log('OAuth callback already processed, skipping...');
+                const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
+                if (alreadyProcessed) {
+                    console.log('OAuth callback already processed, checking if should show mobile OTP screen...');
+                    // If already processed, check if user has active session and show mobile OTP screen
+                    const { data: sessionData } = await supabaseClient.auth.getSession();
+                    if (sessionData?.session) {
+                        console.log('Found active session, showing mobile OTP screen...');
+                        showMobileOtpScreenAfterOAuth();
+                    }
                     return;
                 }
 
@@ -3372,7 +3390,10 @@
 
                     // Show mobile OTP screen to collect mobile number
                     console.log('Showing mobile OTP screen...');
-                    showMobileOtpScreenAfterOAuth();
+                    // Small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        showMobileOtpScreenAfterOAuth();
+                    }, 100);
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
                     // Don't show error - user might just be visiting the page normally
@@ -3393,14 +3414,36 @@
             if (supabaseClient) {
                 supabaseClient.auth.onAuthStateChange((event, session) => {
                     console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
-                    if (event === 'SIGNED_IN' && session && !sessionStorage.getItem('oauthProcessed')) {
-                        console.log('User signed in via auth state change, processing...');
-                        // Small delay to ensure everything is ready
-                        setTimeout(() => {
-                            processOAuthCallback();
-                        }, 100);
+                    if (event === 'SIGNED_IN' && session) {
+                        const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
+                        if (!alreadyProcessed) {
+                            console.log('User signed in via auth state change, processing...');
+                            // Small delay to ensure everything is ready
+                            setTimeout(() => {
+                                processOAuthCallback();
+                            }, 100);
+                        } else {
+                            console.log('OAuth already processed, showing mobile OTP screen...');
+                            showMobileOtpScreenAfterOAuth();
+                        }
                     }
                 });
+            }
+        }
+
+        // Check for existing session on page load and show mobile OTP if needed
+        async function checkExistingSessionAndShowMobileOtp() {
+            try {
+                initSupabase();
+                if (supabaseClient) {
+                    const { data: sessionData } = await supabaseClient.auth.getSession();
+                    if (sessionData?.session && sessionStorage.getItem('oauthProcessed')) {
+                        console.log('Found existing session after OAuth, showing mobile OTP screen...');
+                        showMobileOtpScreenAfterOAuth();
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking existing session:', e);
             }
         }
 
@@ -3408,6 +3451,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             setupAuthStateListener();
             processOAuthCallback();
+            checkExistingSessionAndShowMobileOtp();
         });
 
         // Also check immediately in case DOMContentLoaded already fired
@@ -3417,6 +3461,7 @@
             // DOM already loaded, process immediately
             setupAuthStateListener();
             processOAuthCallback();
+            checkExistingSessionAndShowMobileOtp();
         }
 
         // Form initialization happens when showEmailMobileForm() is called
