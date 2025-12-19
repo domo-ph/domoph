@@ -2615,56 +2615,74 @@
 
         // Initialize mobile OTP functionality
         let mobileOtpInitialized = false;
+        let otpInputsInitialized = false;
         function initializeMobileOtp() {
-            // Prevent duplicate initialization
-            if (mobileOtpInitialized) return;
-            mobileOtpInitialized = true;
-
             const mobileOtpInput = document.getElementById('mobileOtpInput');
             const sendOtpButton = document.getElementById('sendOtpButton');
             const verifyOtpButton = document.getElementById('verifyOtpButton');
             const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
             const countrySelectorOtp = document.getElementById('countrySelectorOtp');
 
-            // Mobile input validation
-            if (mobileOtpInput && sendOtpButton) {
-                mobileOtpInput.addEventListener('input', () => {
-                    const mobile = mobileOtpInput.value.trim();
-                    const digits = mobile.replace(/\D/g, '');
-                    const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
-                    const isValid = selectedCountryCode_iso === 'PH' ? processedDigits.length === 10 : processedDigits.length >= 5;
-                    sendOtpButton.disabled = !isValid;
-                });
-                // Add masking on blur/focus for OTP mobile input
-                mobileOtpInput.addEventListener('blur', () => {
-                    mobileOtpInput.value = formatLocalForDisplay(mobileOtpInput.value, selectedCountryCode_iso);
-                });
-                mobileOtpInput.addEventListener('focus', () => {
-                    mobileOtpInput.value = (mobileOtpInput.value || '').replace(/\D/g, '');
-                });
-            }
+            // Set up mobile input listeners only once
+            if (!mobileOtpInitialized) {
+                mobileOtpInitialized = true;
 
-            // Bind OTP country selector for accessibility and keyboard support
-            if (countrySelectorOtp) {
-                countrySelectorOtp.setAttribute('role', 'button');
-                countrySelectorOtp.setAttribute('tabindex', '0');
-                countrySelectorOtp.setAttribute('aria-haspopup', 'listbox');
-                countrySelectorOtp.setAttribute('aria-expanded', 'false');
-                countrySelectorOtp.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    toggleCountryPicker();
-                });
-                countrySelectorOtp.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                // Mobile input validation
+                if (mobileOtpInput && sendOtpButton) {
+                    mobileOtpInput.addEventListener('input', () => {
+                        const mobile = mobileOtpInput.value.trim();
+                        const digits = mobile.replace(/\D/g, '');
+                        const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+                        const isValid = selectedCountryCode_iso === 'PH' ? processedDigits.length === 10 : processedDigits.length >= 5;
+                        sendOtpButton.disabled = !isValid;
+                    });
+                    // Add masking on blur/focus for OTP mobile input
+                    mobileOtpInput.addEventListener('blur', () => {
+                        mobileOtpInput.value = formatLocalForDisplay(mobileOtpInput.value, selectedCountryCode_iso);
+                    });
+                    mobileOtpInput.addEventListener('focus', () => {
+                        mobileOtpInput.value = (mobileOtpInput.value || '').replace(/\D/g, '');
+                    });
+                }
+
+                // Bind OTP country selector for accessibility and keyboard support
+                if (countrySelectorOtp) {
+                    countrySelectorOtp.setAttribute('role', 'button');
+                    countrySelectorOtp.setAttribute('tabindex', '0');
+                    countrySelectorOtp.setAttribute('aria-haspopup', 'listbox');
+                    countrySelectorOtp.setAttribute('aria-expanded', 'false');
+                    countrySelectorOtp.addEventListener('click', (e) => {
                         e.preventDefault();
                         toggleCountryPicker();
-                    }
-                });
+                    });
+                    countrySelectorOtp.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleCountryPicker();
+                        }
+                    });
+                }
             }
 
+            // Update verify button state (make it accessible globally)
+            window.updateVerifyButtonState = function() {
+                const verifyBtn = document.getElementById('verifyOtpButton');
+                const otpInputsCheck = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+                if (!verifyBtn) return;
+                const allFilled = otpInputsCheck.every(input => input && input.value && input.value.length === 1);
+                verifyBtn.disabled = !allFilled;
+            };
+
             // OTP input handling - auto-focus next
+            // Use a data attribute to prevent duplicate listeners
             otpInputs.forEach((input, index) => {
                 if (!input) return;
+                
+                // Check if listeners are already attached
+                if (input.dataset.otpListenerAttached === 'true') {
+                    return;
+                }
+                input.dataset.otpListenerAttached = 'true';
 
                 input.addEventListener('input', (e) => {
                     const value = e.target.value.replace(/\D/g, '');
@@ -2672,16 +2690,24 @@
 
                     // Move to next input if value entered
                     if (value && index < otpInputs.length - 1) {
-                        otpInputs[index + 1].focus();
+                        const nextInput = document.getElementById(`otp${index + 2}`);
+                        if (nextInput) nextInput.focus();
                     }
 
-                    updateVerifyButtonState();
+                    if (window.updateVerifyButtonState) {
+                        window.updateVerifyButtonState();
+                    }
                 });
 
                 input.addEventListener('keydown', (e) => {
                     // Move to previous input on backspace if empty
                     if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                        otpInputs[index - 1].focus();
+                        const prevInput = document.getElementById(`otp${index}`);
+                        if (prevInput) prevInput.focus();
+                    }
+                    // Update button state on backspace too
+                    if (e.key === 'Backspace' && window.updateVerifyButtonState) {
+                        setTimeout(() => window.updateVerifyButtonState(), 0);
                     }
                 });
 
@@ -2689,23 +2715,25 @@
                     e.preventDefault();
                     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
                     pastedData.split('').forEach((char, i) => {
-                        if (otpInputs[index + i]) {
-                            otpInputs[index + i].value = char;
+                        const targetInput = document.getElementById(`otp${index + i + 1}`);
+                        if (targetInput) {
+                            targetInput.value = char;
                         }
                     });
-                    updateVerifyButtonState();
+                    if (window.updateVerifyButtonState) {
+                        window.updateVerifyButtonState();
+                    }
                     // Focus last input if all filled
                     if (pastedData.length === 4) {
-                        otpInputs[3].focus();
+                        const lastInput = document.getElementById('otp4');
+                        if (lastInput) lastInput.focus();
                     }
                 });
             });
-
-            // Update verify button state
-            function updateVerifyButtonState() {
-                if (!verifyOtpButton) return;
-                const allFilled = otpInputs.every(input => input && input.value.length === 1);
-                verifyOtpButton.disabled = !allFilled;
+            
+            // Update button state after setting up listeners
+            if (window.updateVerifyButtonState) {
+                setTimeout(() => window.updateVerifyButtonState(), 0);
             }
 
             // Send OTP handler
@@ -2917,8 +2945,16 @@
                         if (input) input.value = '';
                     });
                     
+                    // Ensure OTP input event listeners are set up
+                    initializeMobileOtp();
+                    
                     // Start countdown timer
                     startOtpCountdown();
+                    
+                    // Update verify button state (should be disabled initially)
+                    if (window.updateVerifyButtonState) {
+                        window.updateVerifyButtonState();
+                    }
                     
                     // Focus first OTP input
                     const otp1 = document.getElementById('otp1');
