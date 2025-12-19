@@ -3101,6 +3101,37 @@
                     if (session) {
                         // OAuth user: Link mobile number to existing account
                         console.log('OAuth user - linking mobile number to account');
+                        
+                        // Get user info from OAuth session
+                        const user = session.user;
+                        const userMetadata = user.user_metadata || {};
+                        const appMetadata = user.app_metadata || {};
+                        
+                        // Extract name from OAuth provider metadata
+                        // Different providers use different field names:
+                        // Google: given_name, family_name, name
+                        // Apple: firstName, lastName, fullName
+                        // Facebook: first_name, last_name, name
+                        const fullName = userMetadata.full_name || 
+                                         userMetadata.name || 
+                                         `${userMetadata.first_name || userMetadata.given_name || userMetadata.firstName || ''} ${userMetadata.last_name || userMetadata.family_name || userMetadata.lastName || ''}`.trim() ||
+                                         user.email?.split('@')[0] || 
+                                         'User';
+                        
+                        const firstName = userMetadata.first_name || 
+                                         userMetadata.given_name || 
+                                         userMetadata.firstName ||
+                                         fullName.split(' ')[0] || 
+                                         'User';
+                        const lastName = userMetadata.last_name || 
+                                        userMetadata.family_name || 
+                                        userMetadata.lastName || 
+                                        fullName.split(' ').slice(1).join(' ') || 
+                                        '';
+                        
+                        // For OAuth users, we send all required fields
+                        // The backend should recognize this is an OAuth user via the access_token
+                        // and handle the password field appropriately (ignore it or use a placeholder)
                         const linkMobileResponse = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
                             headers: {
@@ -3110,6 +3141,12 @@
                             },
                             body: JSON.stringify({
                                 mobile_no: fullMobileNumber,
+                                full_name: fullName,
+                                first_name: firstName,
+                                last_name: lastName,
+                                // OAuth users don't have passwords - backend should handle this
+                                // Sending placeholder that backend can ignore for OAuth users
+                                password: 'oauth_authenticated_user_no_password_required'
                             }),
                         });
 
