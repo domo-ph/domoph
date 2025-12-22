@@ -2327,7 +2327,7 @@
         }
 
         // Handle form submission
-        function handleSignup(event) {
+        async function handleSignup(event) {
             event.preventDefault();
             hideError();
             hideSuccess();
@@ -2350,6 +2350,66 @@
             if (!validatePassword(password)) {
                 showError('Password must be at least 6 characters long');
                 return;
+            }
+
+            // If email is entered, check if it already exists before proceeding
+            if (idIsEmail) {
+                const emailValue = extraEmail || identifier;
+                
+                // Check if email already exists
+                submitButton.disabled = true;
+                submitButton.textContent = 'Checking...';
+                
+                try {
+                    // Initialize Supabase client if not already done
+                    if (!supabaseClient) {
+                        initSupabase();
+                    }
+                    
+                    // Check if email exists by attempting sign in with dummy password
+                    // If we get "Invalid login credentials", email exists
+                    // If we get "User not found" or similar, email doesn't exist
+                    if (supabaseClient) {
+                        const { data, error } = await supabaseClient.auth.signInWithPassword({
+                            email: emailValue,
+                            password: 'dummy_check_password_that_will_fail_12345!@#'
+                        });
+                        
+                        // If we get InvalidLoginCredentials error, email exists
+                        if (error && error.message && (
+                            error.message.toLowerCase().includes('invalid login') ||
+                            error.message.toLowerCase().includes('invalid credentials') ||
+                            error.message.toLowerCase().includes('email and password')
+                        )) {
+                            // Email exists but password is wrong - email is taken
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'Sumali na';
+                            showError('This email is already registered. Please use a different email or sign in instead.');
+                            return;
+                        }
+                        
+                        // If we get "Email not confirmed" or similar, email might exist but not confirmed
+                        // We should still show error to be safe
+                        if (error && error.message && (
+                            error.message.toLowerCase().includes('email not confirmed') ||
+                            error.message.toLowerCase().includes('not confirmed')
+                        )) {
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'Sumali na';
+                            showError('This email is already registered. Please use a different email or sign in instead.');
+                            return;
+                        }
+                    }
+                    
+                } catch (checkError) {
+                    // If check fails, log but proceed (might be network issue)
+                    console.error('Error checking email existence:', checkError);
+                    // Proceed with signup flow - let backend handle the check
+                }
+                
+                // Reset button state
+                submitButton.disabled = false;
+                submitButton.textContent = 'Sumali na';
             }
 
             const formSection = document.getElementById('formSection');
