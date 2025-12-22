@@ -2305,12 +2305,22 @@
             errorMessage.textContent = message;
             errorMessage.classList.add('show');
             successMessage.classList.remove('show');
+            // Hide the reminder section when error is shown
+            const formReminder = document.querySelector('.form-reminder');
+            if (formReminder) {
+                formReminder.style.display = 'none';
+            }
         }
 
         // Hide error message
         function hideError() {
             errorMessage.classList.remove('show');
             errorMessage.textContent = '';
+            // Show the reminder section when error is hidden
+            const formReminder = document.querySelector('.form-reminder');
+            if (formReminder) {
+                formReminder.style.display = '';
+            }
         }
 
         // Show success message
@@ -2384,7 +2394,7 @@
                             // Email exists but password is wrong - email is taken
                             submitButton.disabled = false;
                             submitButton.textContent = 'Sumali na';
-                            showError('This email is already registered. Please use a different email or sign in instead.');
+                            showError('Nakaregister na ang email na ito, gumamit ng ibang email');
                             return;
                         }
                         
@@ -2396,7 +2406,7 @@
                         )) {
                             submitButton.disabled = false;
                             submitButton.textContent = 'Sumali na';
-                            showError('This email is already registered. Please use a different email or sign in instead.');
+                            showError('Nakaregister na ang email na ito, gumamit ng ibang email');
                             return;
                         }
                     }
