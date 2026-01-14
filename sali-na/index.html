@@ -1982,6 +1982,7 @@
         const SIGNUP_ENDPOINT = `${SUPABASE_URL}/functions/v1/signup-user`;
         const SEND_VERIFICATION_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/send-verification-code`;
         const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
+        const CHECK_STAFF_INVITE_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/check-staff-invite';
 
         try { console.log('Signup script initialized'); } catch (_) { }
 
@@ -2114,6 +2115,22 @@
             }
             // For other countries, E.164 light check: 5-15 digits
             return digits.length >= 5 && digits.length <= 15;
+        }
+
+        // Normalize phone number (matching backend logic)
+        function normalizePhone(value) {
+            if (!value) return null;
+            // Remove all spaces and hyphens
+            let v = String(value).trim().replace(/[\s-]/g, '');
+            // Convert leading 00 to +
+            if (v.startsWith('00')) v = `+${v.slice(2)}`;
+            // Ensure Philippines local numbers are converted to +63 format (best-effort)
+            if (/^0\d{10}$/.test(v)) {
+                // 11-digits starting with 0 -> assume PH and convert
+                v = `+63${v.slice(1)}`;
+            }
+            // If still no plus, but looks like country code-less, keep digits
+            return v;
         }
 
         // Update button state based on form validity
@@ -2362,65 +2379,75 @@
                 return;
             }
 
-            // If email is entered, check if it already exists before proceeding
-            if (idIsEmail) {
-                const emailValue = extraEmail || identifier;
-                
-                // Check if email already exists
-                submitButton.disabled = true;
-                submitButton.textContent = 'Checking...';
-                
-                try {
-                    // Initialize Supabase client if not already done
-                    if (!supabaseClient) {
-                        initSupabase();
-                    }
-                    
-                    // Check if email exists by attempting sign in with dummy password
-                    // If we get "Invalid login credentials", email exists
-                    // If we get "User not found" or similar, email doesn't exist
-                    if (supabaseClient) {
-                        const { data, error } = await supabaseClient.auth.signInWithPassword({
-                            email: emailValue,
-                            password: 'dummy_check_password_that_will_fail_12345!@#'
-                        });
-                        
-                        // If we get InvalidLoginCredentials error, email exists
-                        if (error && error.message && (
-                            error.message.toLowerCase().includes('invalid login') ||
-                            error.message.toLowerCase().includes('invalid credentials') ||
-                            error.message.toLowerCase().includes('email and password')
-                        )) {
-                            // Email exists but password is wrong - email is taken
-                            submitButton.disabled = false;
-                            submitButton.textContent = 'Sumali na';
-                            showError('Nakaregister na ang email na ito, gumamit ng ibang email');
-                            return;
-                        }
-                        
-                        // If we get "Email not confirmed" or similar, email might exist but not confirmed
-                        // We should still show error to be safe
-                        if (error && error.message && (
-                            error.message.toLowerCase().includes('email not confirmed') ||
-                            error.message.toLowerCase().includes('not confirmed')
-                        )) {
-                            submitButton.disabled = false;
-                            submitButton.textContent = 'Sumali na';
-                            showError('Nakaregister na ang email na ito, gumamit ng ibang email');
-                            return;
-                        }
-                    }
-                    
-                } catch (checkError) {
-                    // If check fails, log but proceed (might be network issue)
-                    console.error('Error checking email existence:', checkError);
-                    // Proceed with signup flow - let backend handle the check
+            // Step 3: Check for existing staff_invite using email or mobile
+            // Step 4: If found, look at users table for existing record
+            // Step 5: Combine the data then call signup-user
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Checking...';
+            
+            let staffInvite = null;
+            let existingUser = null;
+            
+            // Normalize inputs (matching backend logic)
+            const normalizedEmail = idIsEmail ? (extraEmail || identifier).trim().toLowerCase() : null;
+            let normalizedMobile = null;
+            let initialFullMobileNumber = null;
+            
+            if (!idIsEmail) {
+                // Normalize mobile number
+                let mobileDigits = identifier.replace(/\D/g, '');
+                if (selectedCountryCode_iso === 'PH') {
+                    mobileDigits = mobileDigits.replace(/^0+/, '');
                 }
-                
-                // Reset button state
-                submitButton.disabled = false;
-                submitButton.textContent = 'Sumali na';
+                initialFullMobileNumber = selectedCountryCode + mobileDigits;
+                normalizedMobile = normalizePhone(initialFullMobileNumber);
             }
+            
+            // Initialize Supabase client if needed
+            if (!supabaseClient) {
+                initSupabase();
+            }
+            
+            // Check staff_invite table using edge function
+            if (normalizedEmail || normalizedMobile) {
+                try {
+                    const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                            'apikey': window.SUPABASE_ANON_KEY
+                        },
+                        body: JSON.stringify({
+                            email: normalizedEmail,
+                            mobile_no: normalizedMobile || initialFullMobileNumber
+                        })
+                    });
+
+                    if (checkResponse.ok) {
+                        const checkData = await checkResponse.json();
+                        if (checkData.has_staff_invite) {
+                            staffInvite = checkData.staff_invite;
+                            console.log('Staff invite found:', staffInvite);
+                        }
+                        if (checkData.has_existing_user) {
+                            existingUser = checkData.existing_user;
+                            console.log('Existing user found:', existingUser);
+                        }
+                    } else {
+                        const errorData = await checkResponse.json().catch(() => ({}));
+                        console.warn('Check staff invite returned error:', errorData);
+                    }
+                } catch (checkError) {
+                    console.error('Error checking staff invite:', checkError);
+                    // Continue with signup flow even if check fails
+                }
+            }
+            
+            // Reset button state
+            submitButton.disabled = false;
+            submitButton.textContent = 'Sumali na';
 
             const formSection = document.getElementById('formSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
@@ -2443,12 +2470,14 @@
                 
                 pendingSignupData = {
                     identifier,
-                    email: emailValue,
+                    email: normalizedEmail || emailValue,
                     password,
                     mobileE164: null,
                     mobileDisplay: null,
                     countryCode: selectedCountryCode,
-                    countryIso: selectedCountryCode_iso
+                    countryIso: selectedCountryCode_iso,
+                    staffInvite: staffInvite, // Include staff invite data
+                    existingUser: existingUser // Include existing user data
                 };
 
                 initializeMobileOtp();
@@ -2518,19 +2547,21 @@
             if (selectedCountryCode_iso === 'PH') {
                 mobileDigits = mobileDigits.replace(/^0+/, '');
             }
-            const fullMobileNumber = selectedCountryCode + mobileDigits;
+            const finalFullMobileNumber = selectedCountryCode + mobileDigits;
             const displayMobile = formatLocalForDisplay(identifier, selectedCountryCode_iso);
 
-            const emailValue = extraEmail || `phone_${fullMobileNumber.replace(/^\+/, '')}@verified.local`;
+            const emailValue = extraEmail || `phone_${finalFullMobileNumber.replace(/^\+/, '')}@verified.local`;
 
             pendingSignupData = {
                 identifier,
                 email: emailValue,
                 password,
-                mobileE164: fullMobileNumber,
+                mobileE164: finalFullMobileNumber,
                 mobileDisplay: displayMobile,
                 countryCode: selectedCountryCode,
-                countryIso: selectedCountryCode_iso
+                countryIso: selectedCountryCode_iso,
+                staffInvite: staffInvite, // Include staff invite data
+                existingUser: existingUser // Include existing user data
             };
 
             submitButton.disabled = true;
@@ -2553,7 +2584,7 @@
             }
 
             // Send OTP and show verification section directly
-            sendOtpAndShowVerification(fullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
+            sendOtpAndShowVerification(finalFullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
 
             submitButton.disabled = false;
             submitButton.textContent = 'Sumali na';
@@ -3051,7 +3082,7 @@
         }
 
         // Handle Send OTP
-        function handleSendOtp() {
+        async function handleSendOtp() {
             let mobile = '';
             let fullMobileNumber = '';
             
@@ -3085,9 +3116,45 @@
                 }
 
                 fullMobileNumber = selectedCountryCode + processedDigits;
+                const normalizedMobile = normalizePhone(fullMobileNumber);
                 const displayMobile = formatLocalForDisplay(mobile, selectedCountryCode_iso);
                 
-                // Update pendingSignupData with mobile number if it exists (e.g., when email was entered first)
+                // Check for staff invite by mobile using edge function
+                if (pendingSignupData && !pendingSignupData.staffInvite) {
+                    try {
+                        const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                                'apikey': window.SUPABASE_ANON_KEY
+                            },
+                            body: JSON.stringify({
+                                mobile_no: normalizedMobile || fullMobileNumber
+                            })
+                        });
+
+                        if (checkResponse.ok) {
+                            const checkData = await checkResponse.json();
+                            if (checkData.has_staff_invite) {
+                                pendingSignupData.staffInvite = checkData.staff_invite;
+                                console.log('Staff invite found by mobile:', checkData.staff_invite);
+                            }
+                            if (checkData.has_existing_user) {
+                                pendingSignupData.existingUser = checkData.existing_user;
+                                console.log('Existing user found by mobile:', checkData.existing_user);
+                            }
+                        } else {
+                            const errorData = await checkResponse.json().catch(() => ({}));
+                            console.warn('Check staff invite by mobile returned error:', errorData);
+                        }
+                    } catch (checkError) {
+                        console.error('Error checking staff invite by mobile:', checkError);
+                        // Continue with OTP flow even if check fails
+                    }
+                }
+                
+                // Update pendingSignupData with mobile number
                 if (pendingSignupData) {
                     pendingSignupData.mobileE164 = fullMobileNumber;
                     pendingSignupData.mobileDisplay = displayMobile;
@@ -3220,23 +3287,47 @@
                             }),
                         });
 
+                        // Handle response - 409 means user already exists
+                        // Backend should check staff_invite table and link household if found
                         if (!linkMobileResponse.ok && linkMobileResponse.status !== 409) {
                             const result = await linkMobileResponse.json().catch(() => ({}));
-                            throw new Error(result.error || 'Failed to link mobile number');
+                            const errorMsg = result.error || result.message || 'Failed to link mobile number';
+                            
+                            // Log error for debugging
+                            console.warn('Link mobile endpoint returned error:', errorMsg);
+                            
+                            // Only throw if it's a critical error (not user already exists)
+                            if (linkMobileResponse.status !== 400 && linkMobileResponse.status !== 409) {
+                                throw new Error(errorMsg);
+                            }
                         }
 
-                        console.log('Mobile number linked successfully');
+                        // Check if we got a successful response or 409 (user exists but might be linking invite)
+                        if (linkMobileResponse.ok || linkMobileResponse.status === 409) {
+                            console.log('Mobile number linked successfully (or user already exists with staff invite)');
+                        }
                         return { success: true };
                     } else if (pendingSignupData) {
                         // Manual signup path: Create new user account
+                        // Step 5: Combine the data (existing user data + new signup data)
+                        const existingUserData = pendingSignupData.existingUser;
+                        
+                        // Use existing user data if available, otherwise use defaults
                         const signupPayload = {
                             email: pendingSignupData.email,
                             password: pendingSignupData.password,
                             mobile_no: pendingSignupData.mobileE164,
-                            full_name: 'Kas User',
-                            first_name: 'Kas',
-                            last_name: 'User'
+                            full_name: existingUserData?.full_name || 'Kas User',
+                            first_name: existingUserData?.first_name || 'Kas',
+                            last_name: existingUserData?.last_name || 'User'
                         };
+                        
+                        // Include staff invite info if found (backend can use this)
+                        if (pendingSignupData.staffInvite) {
+                            console.log('Sending signup with staff invite data:', pendingSignupData.staffInvite);
+                            // Backend will check staff_invite table, but we can include it for reference
+                            signupPayload.staff_invite_id = pendingSignupData.staffInvite.id;
+                        }
 
                         const signupResponse = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
@@ -3250,6 +3341,19 @@
 
                         const data = await signupResponse.json();
                         if (!signupResponse.ok) {
+                            // Handle "user already exists" errors more gracefully
+                            // This might happen if user exists but has staff invite (backend should handle)
+                            if (signupResponse.status === 400 || signupResponse.status === 409) {
+                                const errorMsg = data.error || data.message || '';
+                                
+                                // If user already exists, suggest login instead
+                                // Backend should handle staff invites automatically, but if it fails
+                                // we provide helpful error message
+                                if (errorMsg.toLowerCase().includes('already been registered') || 
+                                    errorMsg.toLowerCase().includes('already exists')) {
+                                    throw new Error('Ang email o mobile number mo ay nakaregister na. Kung may staff invite ka, subukan mong mag-login sa halip.');
+                                }
+                            }
                             throw new Error(data.error || data.message || `Signup failed: ${signupResponse.status}`);
                         }
 
@@ -3783,9 +3887,19 @@
                         });
 
                         // Handle response - 409 means user already exists, which is fine
+                        // Backend will automatically check staff_invite table and handle appropriately
                         if (!response.ok && response.status !== 409) {
                             const result = await response.json().catch(() => ({}));
-                            throw new Error(result.error || 'Failed to finalize signup');
+                            const errorMsg = result.error || result.message || 'Failed to finalize signup';
+                            
+                            // Log error for debugging but continue with mobile OTP flow
+                            // Backend should handle staff invites, but if it fails we continue anyway
+                            console.warn('Signup endpoint returned error:', errorMsg);
+                            
+                            // Only throw if it's a critical error (not user already exists)
+                            if (response.status !== 400 && response.status !== 409) {
+                                throw new Error(errorMsg);
+                            }
                         }
 
                         console.log('Provider signup finalized successfully');
