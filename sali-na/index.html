@@ -418,6 +418,30 @@
             padding-bottom: var(--spacing-xxl);
         }
 
+        /* Resend OTP Text */
+        .resend-otp-text {
+            color: #73C8E7;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 18px;
+            letter-spacing: -0.006em;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            user-select: none;
+        }
+
+        .resend-otp-text:hover:not(.disabled) {
+            opacity: 0.8;
+        }
+
+        .resend-otp-text.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
         /* Main Container */
         .container {
             flex: 1;
@@ -1725,7 +1749,7 @@
                 <img src="google-icon.svg" alt="Google" class="auth-button-icon" />
                 <span>Direktang sign-up gamit Google</span>
             </button>
-            <button class="auth-button" id="facebookAuthButton" onclick="beginProviderSignupWithOtp('facebook')">
+            <button class="auth-button" id="facebookAuthButton" onclick="beginProviderSignupWithOtp('facebook')" style="display: none;">
                 <img src="facebook-icon.svg" alt="Facebook" class="auth-button-icon" />
                 <span>Direktang sign-up gamit FB</span>
             </button>
@@ -1813,7 +1837,7 @@
 
             <!-- Resend OTP Button -->
             <div class="button-container-send">
-                <button type="button" id="resendOtpButton" class="btn-send-otp" disabled>Resend in 0s</button>
+                <span id="resendOtpButton" class="resend-otp-text disabled">Resend in 0s</span>
             </div>
 
             <!-- Instruction Text -->
@@ -2190,6 +2214,18 @@
                 // unmask to raw digits for easier editing
                 const val = mobileInput.value || '';
                 mobileInput.value = val.replace(/\D/g, '');
+            });
+            // Hide/show country code selector based on letter detection
+            mobileInput.addEventListener('input', () => {
+                const val = mobileInput.value || '';
+                const hasLetter = /[a-zA-Z]/.test(val);
+                if (countrySelector) {
+                    if (hasLetter) {
+                        countrySelector.style.display = 'none';
+                    } else {
+                        countrySelector.style.display = '';
+                    }
+                }
             });
         }
 
@@ -2930,7 +2966,7 @@
             if (!resendOtpButton) return;
 
             otpCountdownSeconds = 99;
-            resendOtpButton.disabled = true;
+            resendOtpButton.classList.add('disabled');
             updateOtpButtonText();
 
             otpCountdownTimer = setInterval(() => {
@@ -2938,7 +2974,7 @@
                 if (otpCountdownSeconds <= 0) {
                     clearInterval(otpCountdownTimer);
                     otpCountdownTimer = null;
-                    resendOtpButton.disabled = false;
+                    resendOtpButton.classList.remove('disabled');
                     resendOtpButton.textContent = 'Resend OTP';
                 } else {
                     updateOtpButtonText();
@@ -2961,7 +2997,7 @@
             otpCountdownSeconds = 0;
             const resendOtpButton = document.getElementById('resendOtpButton');
             if (resendOtpButton) {
-                resendOtpButton.disabled = false;
+                resendOtpButton.classList.remove('disabled');
                 resendOtpButton.textContent = 'Resend OTP';
             }
         }
@@ -2980,7 +3016,7 @@
                 sendOtpButton.textContent = 'Sending...';
             }
             if (resendOtpButton) {
-                resendOtpButton.disabled = true;
+                resendOtpButton.classList.add('disabled');
                 resendOtpButton.textContent = 'Sending...';
             }
 
@@ -3610,7 +3646,7 @@
             // Reset resend button
             const resendOtpButton = document.getElementById('resendOtpButton');
             if (resendOtpButton) {
-                resendOtpButton.disabled = true;
+                resendOtpButton.classList.add('disabled');
                 resendOtpButton.textContent = 'Resend in 0s';
             }
             
