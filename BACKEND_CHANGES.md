@@ -130,3 +130,4 @@ Test these scenarios to ensure everything works:
 - Staff invite status is updated to `done` after successful signup
 - The function is idempotent - can be called multiple times safely
 
+

@@ -3302,6 +3302,9 @@
                                         fullName.split(' ').slice(1).join(' ') || 
                                         '';
                         
+                        // Truncate fields to fit database constraints (VARCHAR(20) for nickname)
+                        const truncatedFirstName = firstName.length > 20 ? firstName.substring(0, 20) : firstName;
+                        
                         // For OAuth users, we send all required fields
                         // The backend should recognize this is an OAuth user via the access_token
                         // and handle the password field appropriately (ignore it or use a placeholder)
@@ -3315,8 +3318,9 @@
                             body: JSON.stringify({
                                 mobile_no: fullMobileNumber,
                                 full_name: fullName,
-                                first_name: firstName,
-                                last_name: lastName,
+                                first_name: truncatedFirstName,
+                                last_name: null,
+                                nickname: truncatedFirstName,
                                 // OAuth users don't have passwords - backend should handle this
                                 // Sending placeholder that backend can ignore for OAuth users
                                 password: 'oauth_authenticated_user_no_password_required'
@@ -3349,13 +3353,15 @@
                         const existingUserData = pendingSignupData.existingUser;
                         
                         // Use existing user data if available, otherwise use defaults
+                        const firstName = existingUserData?.first_name || 'Kas';
                         const signupPayload = {
                             email: pendingSignupData.email,
                             password: pendingSignupData.password,
                             mobile_no: pendingSignupData.mobileE164,
                             full_name: existingUserData?.full_name || 'Kas User',
-                            first_name: existingUserData?.first_name || 'Kas',
-                            last_name: existingUserData?.last_name || 'User'
+                            first_name: firstName,
+                            last_name: null,
+                            nickname: firstName
                         };
                         
                         // Include staff invite info if found (backend can use this)
@@ -3910,7 +3916,34 @@
                         const urlParams = new URLSearchParams(window.location.search);
                         const role = urlParams.get('role') || 'kasambahay';
 
-                        console.log('Calling signup-user with role:', role);
+                        // Extract user info from OAuth session
+                        const user = session.user;
+                        const userMetadata = user.user_metadata || {};
+                        
+                        // Extract name from OAuth provider metadata
+                        // Different providers use different field names:
+                        // Google: given_name, family_name, name
+                        // Apple: firstName, lastName, fullName
+                        // Facebook: first_name, last_name, name
+                        const fullName = userMetadata.full_name || 
+                                         userMetadata.name || 
+                                         `${userMetadata.first_name || userMetadata.given_name || userMetadata.firstName || ''} ${userMetadata.last_name || userMetadata.family_name || userMetadata.lastName || ''}`.trim() ||
+                                         user.email?.split('@')[0] || 
+                                         'User';
+                        
+                        const firstName = userMetadata.first_name || 
+                                         userMetadata.given_name || 
+                                         userMetadata.firstName ||
+                                         fullName.split(' ')[0] || 
+                                         'User';
+                        
+                        const lastName = userMetadata.last_name || 
+                                        userMetadata.family_name || 
+                                        userMetadata.lastName || 
+                                        fullName.split(' ').slice(1).join(' ') || 
+                                        '';
+
+                        console.log('Calling signup-user with OAuth user data:', { role, fullName, firstName, lastName });
 
                         const response = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
@@ -3919,7 +3952,17 @@
                                 'Authorization': `Bearer ${session.access_token}`,
                                 'apikey': window.SUPABASE_ANON_KEY,
                             },
-                            body: JSON.stringify({ role }),
+                            body: JSON.stringify({
+                                role,
+                                full_name: fullName,
+                                first_name: firstName,
+                                last_name: lastName,
+                                email: user.email || null,
+                                // OAuth users don't have passwords - backend should handle this
+                                password: 'oauth_authenticated_user_no_password_required',
+                                // mobile_no will be added later when user verifies OTP
+                                mobile_no: null
+                            }),
                         });
 
                         // Handle response - 409 means user already exists, which is fine

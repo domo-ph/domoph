@@ -45,6 +45,11 @@ serve(async (req) => {
             return v
         }
 
+        const truncateString = (str: string | null | undefined, maxLength: number): string => {
+            if (!str) return ''
+            return str.length > maxLength ? str.substring(0, maxLength) : str
+        }
+
         // Create Supabase admin client (for admin operations)
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -58,21 +63,9 @@ serve(async (req) => {
         )
 
         // Parse request body
-        const { email, password, mobile_no, full_name, first_name, last_name, role } = await req.json()
+        let { email, password, mobile_no, full_name, first_name, last_name, role } = await req.json()
 
-        // Validate required fields
-        if (!password || !mobile_no || !full_name) {
-            return new Response(
-                JSON.stringify({ error: 'Missing required fields: password, mobile_no, and full_name are required' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-        }
-
-        // Normalize inputs
-        const normalizedEmail = normalizeEmail(email)
-        const normalizedMobile = normalizePhone(mobile_no)
-
-        // Check if this is an OAuth user (has valid session with access_token)
+        // Check if this is an OAuth user FIRST (before validation)
         let isOAuthUser = false
         let existingAuthUser = null
         let authUserId = null
@@ -87,11 +80,71 @@ serve(async (req) => {
                 existingAuthUser = user
                 authUserId = user.id
                 console.log('OAuth user detected:', user.id)
+                
+                // For OAuth users, extract name from user metadata if not provided in request
+                if (!full_name && user.user_metadata) {
+                    const userMeta = user.user_metadata
+                    // Google provides: given_name, family_name, name
+                    // Apple provides: firstName, lastName, fullName
+                    // Facebook provides: first_name, last_name, name
+                    full_name = userMeta.full_name || 
+                               userMeta.name || 
+                               `${userMeta.given_name || userMeta.first_name || userMeta.firstName || ''} ${userMeta.family_name || userMeta.last_name || userMeta.lastName || ''}`.trim() ||
+                               user.email?.split('@')[0] || 
+                               'User'
+                    
+                    if (!first_name) {
+                        first_name = userMeta.first_name || 
+                                    userMeta.given_name || 
+                                    userMeta.firstName ||
+                                    full_name.split(' ')[0] || 
+                                    'User'
+                    }
+                    
+                    if (!last_name) {
+                        last_name = userMeta.last_name || 
+                                   userMeta.family_name || 
+                                   userMeta.lastName || 
+                                   full_name.split(' ').slice(1).join(' ') || 
+                                   ''
+                    }
+                    
+                    // Also get email from user if not provided
+                    if (!email && user.email) {
+                        email = user.email
+                    }
+                    
+                    console.log('Extracted OAuth user data:', { full_name, first_name, last_name, email })
+                }
             }
         } catch (e) {
             // Not an OAuth user, will create new user
             console.log('Not an OAuth user, proceeding with new user creation')
         }
+
+        // Validate required fields conditionally based on OAuth status
+        if (!isOAuthUser) {
+            // For regular signup, all fields are required
+            if (!password || !mobile_no || !full_name) {
+                return new Response(
+                    JSON.stringify({ error: 'Missing required fields: password, mobile_no, and full_name are required' }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+        } else {
+            // For OAuth users, only full_name is required initially
+            // mobile_no comes later via OTP verification, password is not needed
+            if (!full_name) {
+                return new Response(
+                    JSON.stringify({ error: 'Missing required field: full_name is required' }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+        }
+
+        // Normalize inputs
+        const normalizedEmail = normalizeEmail(email)
+        const normalizedMobile = normalizePhone(mobile_no)
 
         // Check staff_invite table for matching mobile number or email (status=new)
         // Prefer mobile match first, then email
@@ -130,11 +183,11 @@ serve(async (req) => {
             }
         }
 
-        // Prepare user metadata
+        // Prepare user metadata (truncate fields to fit database constraints)
         const userMetadata: Record<string, any> = {
             full_name: full_name || '',
-            first_name: first_name || full_name?.split(' ')[0] || '',
-            last_name: last_name || full_name?.split(' ').slice(1).join(' ') || '',
+            first_name: truncateString(first_name || full_name?.split(' ')[0] || '', 20),
+            last_name: truncateString(last_name || full_name?.split(' ').slice(1).join(' ') || '', 20),
             mobile_no: normalizedMobile || mobile_no,
             role: userRole
         }
@@ -321,9 +374,9 @@ serve(async (req) => {
                     authid: authUserId,
                     email: normalizedEmail || null,
                     full_name: full_name || '',
-                    first_name: first_name || full_name?.split(' ')[0] || '',
-                    last_name: last_name || full_name?.split(' ').slice(1).join(' ') || '',
-                    mobile_no: normalizedMobile || mobile_no,
+                    first_name: truncateString(first_name || full_name?.split(' ')[0] || '', 20),
+                    last_name: truncateString(last_name || full_name?.split(' ').slice(1).join(' ') || '', 20),
+                    mobile_no: normalizedMobile || mobile_no || null,
                     role: userRole,
                     onboarded: false,
                     onboarding_page: null
@@ -347,12 +400,12 @@ serve(async (req) => {
             const { error: updateError } = await supabaseAdmin
                 .from('users')
                 .update({
-                    mobile_no: normalizedMobile || mobile_no,
+                    mobile_no: normalizedMobile || mobile_no || existingUser.mobile_no,
                     role: userRole,
                     email: normalizedEmail || existingUser.email,
                     full_name: full_name || existingUser.full_name,
-                    first_name: first_name || existingUser.first_name,
-                    last_name: last_name || existingUser.last_name
+                    first_name: truncateString(first_name || existingUser.first_name, 20),
+                    last_name: truncateString(last_name || existingUser.last_name, 20)
                 })
                 .eq('authid', authUserId)
 
