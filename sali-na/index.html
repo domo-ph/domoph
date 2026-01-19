@@ -2007,6 +2007,7 @@
         const SEND_VERIFICATION_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/send-verification-code`;
         const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
         const CHECK_STAFF_INVITE_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/check-staff-invite';
+        const VALIDATE_MOBILE_NUMBER_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/validate-mobile-number';
 
         try { console.log('Signup script initialized'); } catch (_) { }
 
@@ -3003,7 +3004,7 @@
         }
 
         // Helper function to send OTP and transition to verification section
-        function sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, countryIso) {
+        async function sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, countryIso) {
             // Store for resend
             currentVerifyingMobileNumber = fullMobileNumber;
 
@@ -3013,108 +3014,145 @@
             
             if (sendOtpButton) {
                 sendOtpButton.disabled = true;
-                sendOtpButton.textContent = 'Sending...';
+                sendOtpButton.textContent = 'Validating...';
             }
             if (resendOtpButton) {
                 resendOtpButton.classList.add('disabled');
-                resendOtpButton.textContent = 'Sending...';
+                resendOtpButton.textContent = 'Validating...';
             }
 
-            // Call Supabase Edge Function to send OTP
-            fetch(SEND_VERIFICATION_CODE_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                    'apikey': window.SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({
-                    mobile_number: fullMobileNumber
-                })
-            })
-                .then(async response => {
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error || data.message || `Server error: ${response.status}`);
-                    }
-                    return data;
-                })
-                .then(data => {
-                    // Format mobile number for display
-                    const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
-                    const formattedMobileNumber = `${countryCode} ${displayMobile}`;
-                    
-                    // Hide mobile OTP section and show OTP verification section
-                    const mobileOtpSection = document.getElementById('mobileOtpSection');
-                    const otpVerificationSection = document.getElementById('otpVerificationSection');
-                    
-                    if (mobileOtpSection) {
-                        mobileOtpSection.classList.remove('show');
-                        mobileOtpSection.style.display = 'none';
-                    }
-                    
-                    if (otpVerificationSection) {
-                        otpVerificationSection.classList.add('show');
-                        otpVerificationSection.style.display = 'flex';
-                    }
-                    
-                    // Update instruction text with mobile number
-                    const instructionText = document.getElementById('otpInstructionText');
-                    if (instructionText) {
-                        instructionText.textContent = `Nag-send kami ng OTP sa ${formattedMobileNumber}. Ilagay lang sa taas para ma-verify ang number mo.`;
-                    }
-                    
-                    // Clear any previous error/success messages
-                    const errorMessageOtpVerify = document.getElementById('errorMessageOtpVerify');
-                    const successMessageOtpVerify = document.getElementById('successMessageOtpVerify');
-                    if (errorMessageOtpVerify) {
-                        errorMessageOtpVerify.classList.remove('show');
-                        errorMessageOtpVerify.textContent = '';
-                    }
-                    if (successMessageOtpVerify) {
-                        successMessageOtpVerify.classList.remove('show');
-                        successMessageOtpVerify.textContent = '';
-                    }
-                    
-                    // Reset OTP inputs
-                    const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
-                    otpInputs.forEach(input => {
-                        if (input) input.value = '';
-                    });
-                    
-                    // Ensure OTP input event listeners are set up
-                    initializeMobileOtp();
-                    
-                    // Start countdown timer
-                    startOtpCountdown();
-                    
-                    // Update verify button state (should be disabled initially)
-                    if (window.updateVerifyButtonState) {
-                        window.updateVerifyButtonState();
-                    }
-                    
-                    // Focus first OTP input
-                    const otp1 = document.getElementById('otp1');
-                    if (otp1) {
-                        setTimeout(() => otp1.focus(), 100);
-                    }
-                    
-                    // Scroll to top
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                })
-                .catch(error => {
-                    console.error('Send OTP error:', error);
+            try {
+                // First, validate mobile number ownership
+                const validateResponse = await fetch(VALIDATE_MOBILE_NUMBER_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                        'apikey': window.SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        mobile_number: fullMobileNumber
+                    })
+                });
+
+                const validateData = await validateResponse.json();
+                
+                if (!validateResponse.ok) {
+                    // Validation failed - show error message from backend
                     if (sendOtpButton) {
                         sendOtpButton.disabled = false;
                         sendOtpButton.textContent = 'Send OTP';
                     }
-                    const resendOtpButton = document.getElementById('resendOtpButton');
                     if (resendOtpButton) {
-                        resendOtpButton.disabled = false;
+                        resendOtpButton.classList.remove('disabled');
                         resendOtpButton.textContent = 'Resend OTP';
                     }
-                    showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+                    showErrorOtp(validateData.error || 'Mobile number validation failed');
+                    return;
+                }
+
+                // Validation passed - update button text and proceed to send OTP
+                if (sendOtpButton) {
+                    sendOtpButton.textContent = 'Sending...';
+                }
+                if (resendOtpButton) {
+                    resendOtpButton.textContent = 'Sending...';
+                }
+
+                // Call Supabase Edge Function to send OTP
+                const otpResponse = await fetch(SEND_VERIFICATION_CODE_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                        'apikey': window.SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        mobile_number: fullMobileNumber
+                    })
                 });
+
+                const otpData = await otpResponse.json();
+                
+                if (!otpResponse.ok) {
+                    throw new Error(otpData.error || otpData.message || `Server error: ${otpResponse.status}`);
+                }
+
+                // OTP sent successfully
+                // Format mobile number for display
+                const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
+                const formattedMobileNumber = `${countryCode} ${displayMobile}`;
+                
+                // Hide mobile OTP section and show OTP verification section
+                const mobileOtpSection = document.getElementById('mobileOtpSection');
+                const otpVerificationSection = document.getElementById('otpVerificationSection');
+                
+                if (mobileOtpSection) {
+                    mobileOtpSection.classList.remove('show');
+                    mobileOtpSection.style.display = 'none';
+                }
+                
+                if (otpVerificationSection) {
+                    otpVerificationSection.classList.add('show');
+                    otpVerificationSection.style.display = 'flex';
+                }
+                
+                // Update instruction text with mobile number
+                const instructionText = document.getElementById('otpInstructionText');
+                if (instructionText) {
+                    instructionText.textContent = `Nag-send kami ng OTP sa ${formattedMobileNumber}. Ilagay lang sa taas para ma-verify ang number mo.`;
+                }
+                
+                // Clear any previous error/success messages
+                const errorMessageOtpVerify = document.getElementById('errorMessageOtpVerify');
+                const successMessageOtpVerify = document.getElementById('successMessageOtpVerify');
+                if (errorMessageOtpVerify) {
+                    errorMessageOtpVerify.classList.remove('show');
+                    errorMessageOtpVerify.textContent = '';
+                }
+                if (successMessageOtpVerify) {
+                    successMessageOtpVerify.classList.remove('show');
+                    successMessageOtpVerify.textContent = '';
+                }
+                
+                // Reset OTP inputs
+                const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+                otpInputs.forEach(input => {
+                    if (input) input.value = '';
+                });
+                
+                // Ensure OTP input event listeners are set up
+                initializeMobileOtp();
+                
+                // Start countdown timer
+                startOtpCountdown();
+                
+                // Update verify button state (should be disabled initially)
+                if (window.updateVerifyButtonState) {
+                    window.updateVerifyButtonState();
+                }
+                
+                // Focus first OTP input
+                const otp1 = document.getElementById('otp1');
+                if (otp1) {
+                    setTimeout(() => otp1.focus(), 100);
+                }
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error) {
+                console.error('Send OTP error:', error);
+                if (sendOtpButton) {
+                    sendOtpButton.disabled = false;
+                    sendOtpButton.textContent = 'Send OTP';
+                }
+                if (resendOtpButton) {
+                    resendOtpButton.classList.remove('disabled');
+                    resendOtpButton.disabled = false;
+                    resendOtpButton.textContent = 'Resend OTP';
+                }
+                showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+            }
         }
 
         // Handle Send OTP
@@ -3122,26 +3160,16 @@
             let mobile = '';
             let fullMobileNumber = '';
             
-            // Check if we have a stored mobile number (for resend)
-            if (currentVerifyingMobileNumber) {
-                fullMobileNumber = currentVerifyingMobileNumber;
-                // Extract mobile digits for validation
-                const storedDigits = currentVerifyingMobileNumber.replace(/^\+/, '').replace(/\D/g, '');
-                mobile = storedDigits;
-                
-                // Use stored country code info
-                const countryCodeMatch = fullMobileNumber.match(/^(\+\d+)(.+)$/);
-                const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
-                const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : storedDigits;
-                
-                sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, selectedCountryCode_iso);
-                return;
-            } else {
-                // Get from input field
-                const mobileOtpInput = document.getElementById('mobileOtpInput');
-                if (!mobileOtpInput) return;
+            // Get from input field first (prioritize new input over stored value)
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            if (!mobileOtpInput) return;
 
-                mobile = mobileOtpInput.value.trim();
+            const inputValue = mobileOtpInput.value.trim();
+            
+            // If input field has a value, use it (new input)
+            // Otherwise, use stored mobile number (resend scenario)
+            if (inputValue) {
+                mobile = inputValue;
                 const digits = mobile.replace(/\D/g, '');
                 const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
 
@@ -3152,54 +3180,70 @@
                 }
 
                 fullMobileNumber = selectedCountryCode + processedDigits;
-                const normalizedMobile = normalizePhone(fullMobileNumber);
-                const displayMobile = formatLocalForDisplay(mobile, selectedCountryCode_iso);
-                
-                // Check for staff invite by mobile using edge function
-                if (pendingSignupData && !pendingSignupData.staffInvite) {
-                    try {
-                        const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                                'apikey': window.SUPABASE_ANON_KEY
-                            },
-                            body: JSON.stringify({
-                                mobile_no: normalizedMobile || fullMobileNumber
-                            })
-                        });
-
-                        if (checkResponse.ok) {
-                            const checkData = await checkResponse.json();
-                            if (checkData.has_staff_invite) {
-                                pendingSignupData.staffInvite = checkData.staff_invite;
-                                console.log('Staff invite found by mobile:', checkData.staff_invite);
-                            }
-                            if (checkData.has_existing_user) {
-                                pendingSignupData.existingUser = checkData.existing_user;
-                                console.log('Existing user found by mobile:', checkData.existing_user);
-                            }
-                        } else {
-                            const errorData = await checkResponse.json().catch(() => ({}));
-                            console.warn('Check staff invite by mobile returned error:', errorData);
-                        }
-                    } catch (checkError) {
-                        console.error('Error checking staff invite by mobile:', checkError);
-                        // Continue with OTP flow even if check fails
-                    }
-                }
-                
-                // Update pendingSignupData with mobile number
-                if (pendingSignupData) {
-                    pendingSignupData.mobileE164 = fullMobileNumber;
-                    pendingSignupData.mobileDisplay = displayMobile;
-                    pendingSignupData.countryCode = selectedCountryCode;
-                    pendingSignupData.countryIso = selectedCountryCode_iso;
-                }
-                
-                sendOtpAndShowVerification(fullMobileNumber, processedDigits, selectedCountryCode, selectedCountryCode_iso);
+            } else if (currentVerifyingMobileNumber) {
+                // No input value, use stored mobile number (resend)
+                fullMobileNumber = currentVerifyingMobileNumber;
+                // Extract mobile digits for validation
+                const storedDigits = currentVerifyingMobileNumber.replace(/^\+/, '').replace(/\D/g, '');
+                mobile = storedDigits;
+            } else {
+                // No input and no stored value
+                showErrorOtp(selectedCountryCode_iso === 'PH' ? 'Please enter a valid 10-digit Philippine mobile number' : 'Please enter a valid mobile number');
+                return;
             }
+
+            const normalizedMobile = normalizePhone(fullMobileNumber);
+            const displayMobile = formatLocalForDisplay(mobile, selectedCountryCode_iso);
+            
+            // Determine country code and mobile digits for display
+            const countryCodeMatch = fullMobileNumber.match(/^(\+\d+)(.+)$/);
+            const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
+            const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : mobile.replace(/\D/g, '');
+            
+            // Check for staff invite by mobile using edge function
+            if (pendingSignupData && !pendingSignupData.staffInvite) {
+                try {
+                    const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                            'apikey': window.SUPABASE_ANON_KEY
+                        },
+                        body: JSON.stringify({
+                            mobile_no: normalizedMobile || fullMobileNumber
+                        })
+                    });
+
+                    if (checkResponse.ok) {
+                        const checkData = await checkResponse.json();
+                        if (checkData.has_staff_invite) {
+                            pendingSignupData.staffInvite = checkData.staff_invite;
+                            console.log('Staff invite found by mobile:', checkData.staff_invite);
+                        }
+                        if (checkData.has_existing_user) {
+                            pendingSignupData.existingUser = checkData.existing_user;
+                            console.log('Existing user found by mobile:', checkData.existing_user);
+                        }
+                    } else {
+                        const errorData = await checkResponse.json().catch(() => ({}));
+                        console.warn('Check staff invite by mobile returned error:', errorData);
+                    }
+                } catch (checkError) {
+                    console.error('Error checking staff invite by mobile:', checkError);
+                    // Continue with OTP flow even if check fails
+                }
+            }
+            
+            // Update pendingSignupData with mobile number
+            if (pendingSignupData) {
+                pendingSignupData.mobileE164 = fullMobileNumber;
+                pendingSignupData.mobileDisplay = displayMobile;
+                pendingSignupData.countryCode = selectedCountryCode;
+                pendingSignupData.countryIso = selectedCountryCode_iso;
+            }
+            
+            sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, selectedCountryCode_iso);
         }
 
         // Handle Verify OTP

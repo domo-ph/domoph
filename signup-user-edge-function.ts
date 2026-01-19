@@ -356,6 +356,145 @@ serve(async (req) => {
             }
         }
 
+        // =====================================================================================
+        // OAuth ghost-user reconciliation (users.is_pending_signup = true AND users.authid IS NULL)
+        //
+        // Context:
+        // - "email/mobile na lang" flow creates a pending users row first (authid NULL).
+        // - When the user later completes OAuth, Supabase Auth user already exists, so the DB trigger
+        //   migration path may not run (or may not match due to provider-specific fields).
+        //
+        // Approach (minimal + safe):
+        // - Only for OAuth users (we have a real auth user id from the session token).
+        // - If there is NOT already a users row for this auth user id, try to find a pending row
+        //   matching email first, then mobile.
+        // - Priority: Use staff_invite email/mobile if staff invite exists (pending user was likely
+        //   created when staff invite was sent), then fall back to OAuth user's email/mobile.
+        // - If found, "claim" it by setting authid = authUserId and clearing is_pending_signup.
+        //
+        // This keeps the original users.id (and therefore preserves FK references) rather than
+        // attempting to rewrite ids like the DB trigger does.
+        // =====================================================================================
+        if (isOAuthUser && authUserId) {
+            const { data: alreadyLinkedUser, error: alreadyLinkedUserError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('authid', authUserId)
+                .maybeSingle()
+
+            if (alreadyLinkedUserError) {
+                console.warn('OAuth reconcile: failed to check existing users row:', alreadyLinkedUserError)
+            }
+
+            if (!alreadyLinkedUser) {
+                let pendingUser: any = null
+
+                // Priority 1: If staff invite found, use its email/mobile to find pending user
+                // (pending user was likely created when staff invite was sent)
+                if (staffInviteFound) {
+                    const inviteEmail = staffInviteFound.email ? normalizeEmail(staffInviteFound.email) : null
+                    const inviteMobile = staffInviteFound.mobile ? normalizePhone(staffInviteFound.mobile) : null
+
+                    // Try by staff invite email first
+                    if (inviteEmail) {
+                        const { data: pendingByInviteEmail, error: inviteEmailError } = await supabaseAdmin
+                            .from('users')
+                            .select('id, email, mobile_no, household, user_color, role, full_name, first_name, last_name')
+                            .eq('is_pending_signup', true)
+                            .is('authid', null)
+                            .eq('email', inviteEmail)
+                            .maybeSingle()
+
+                        if (!inviteEmailError && pendingByInviteEmail) {
+                            pendingUser = pendingByInviteEmail
+                            console.log('OAuth reconcile: pending user found by staff invite email:', inviteEmail, 'pending_user_id:', pendingUser.id)
+                        }
+                    }
+
+                    // If not found by invite email, try by invite mobile
+                    if (!pendingUser && inviteMobile) {
+                        const { data: pendingByInviteMobile, error: inviteMobileError } = await supabaseAdmin
+                            .from('users')
+                            .select('id, email, mobile_no, household, user_color, role, full_name, first_name, last_name')
+                            .eq('is_pending_signup', true)
+                            .is('authid', null)
+                            .or(`mobile_no.eq.${inviteMobile},mobile_no.eq.${staffInviteFound.mobile}`)
+                            .maybeSingle()
+
+                        if (!inviteMobileError && pendingByInviteMobile) {
+                            pendingUser = pendingByInviteMobile
+                            console.log('OAuth reconcile: pending user found by staff invite mobile:', inviteMobile, 'pending_user_id:', pendingUser.id)
+                        }
+                    }
+                }
+
+                // Priority 2: Fall back to OAuth user's email/mobile if no staff invite match
+                if (!pendingUser) {
+                    // Prefer matching by normalized email first
+                    if (normalizedEmail) {
+                        const { data: pendingByEmail, error: pendingByEmailError } = await supabaseAdmin
+                            .from('users')
+                            .select('id, email, mobile_no, household, user_color, role, full_name, first_name, last_name')
+                            .eq('is_pending_signup', true)
+                            .is('authid', null)
+                            .eq('email', normalizedEmail)
+                            .maybeSingle()
+
+                        if (pendingByEmailError) {
+                            console.warn('OAuth reconcile: pending-by-email lookup error:', pendingByEmailError)
+                        } else if (pendingByEmail) {
+                            pendingUser = pendingByEmail
+                            console.log('OAuth reconcile: pending user found by email:', normalizedEmail, 'pending_user_id:', pendingUser.id)
+                        }
+                    }
+
+                    // If not found by email, try matching by normalized mobile
+                    if (!pendingUser && normalizedMobile) {
+                        const { data: pendingByMobile, error: pendingByMobileError } = await supabaseAdmin
+                            .from('users')
+                            .select('id, email, mobile_no, household, user_color, role, full_name, first_name, last_name')
+                            .eq('is_pending_signup', true)
+                            .is('authid', null)
+                            .or(`mobile_no.eq.${normalizedMobile},mobile_no.eq.${mobile_no}`)
+                            .maybeSingle()
+
+                        if (pendingByMobileError) {
+                            console.warn('OAuth reconcile: pending-by-mobile lookup error:', pendingByMobileError)
+                        } else if (pendingByMobile) {
+                            pendingUser = pendingByMobile
+                            console.log('OAuth reconcile: pending user found by mobile:', normalizedMobile, 'pending_user_id:', pendingUser.id)
+                        }
+                    }
+                }
+
+                // Claim pending user row by attaching authid
+                if (pendingUser) {
+                    const { error: claimError } = await supabaseAdmin
+                        .from('users')
+                        .update({
+                            authid: authUserId,
+                            is_pending_signup: false,
+                            // backfill basic profile fields if missing
+                            email: normalizedEmail || pendingUser.email,
+                            mobile_no: normalizedMobile || mobile_no || pendingUser.mobile_no,
+                            role: userRole || pendingUser.role,
+                            full_name: full_name || pendingUser.full_name,
+                            first_name: truncateString(first_name || pendingUser.first_name, 20),
+                            last_name: truncateString(last_name || pendingUser.last_name, 20),
+                        })
+                        .eq('id', pendingUser.id)
+                        .eq('is_pending_signup', true)
+                        .is('authid', null) // race-safety guard
+
+                    if (claimError) {
+                        console.warn('OAuth reconcile: failed to claim pending user row:', claimError)
+                    } else {
+                        console.log('OAuth reconcile: claimed pending user row successfully:', pendingUser.id, '-> authid:', authUserId)
+                    }
+                }
+            }
+        }
+
         // Wait a moment for database trigger to complete (if exists)
         await new Promise(resolve => setTimeout(resolve, 1000))
 
