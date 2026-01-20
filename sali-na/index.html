@@ -3998,13 +3998,13 @@
                     }
                 }
 
-                // If we have a session and haven't processed it yet, finalize signup
+                // If we have a session and haven't processed it yet, check staff invite and verify mobile
                 if (session) {
                     // Mark as processed immediately to prevent duplicate processing
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
 
-                    // Call signup-user edge function to create user profile
+                    // Check for staff invite before mobile verification
                     try {
                         // Extract user info from OAuth session
                         const user = session.user;
@@ -4013,10 +4013,7 @@
                         // Normalize email for staff invite check
                         const normalizedEmail = user.email ? user.email.trim().toLowerCase() : null;
                         
-                        // Check for staff invite before calling signup-user
-                        let staffInvite = null;
-                        let existingUser = null;
-                        
+                        // Check for staff invite - will be checked again by mobile number after verification
                         if (normalizedEmail) {
                             try {
                                 console.log('Checking for staff invite with email:', normalizedEmail);
@@ -4036,12 +4033,10 @@
                                 if (checkResponse.ok) {
                                     const checkData = await checkResponse.json();
                                     if (checkData.has_staff_invite) {
-                                        staffInvite = checkData.staff_invite;
-                                        console.log('Staff invite found for OAuth user:', staffInvite);
+                                        console.log('Staff invite found for OAuth user (will be linked after mobile verification):', checkData.staff_invite);
                                     }
                                     if (checkData.has_existing_user) {
-                                        existingUser = checkData.existing_user;
-                                        console.log('Existing user found for OAuth user:', existingUser);
+                                        console.log('Existing user found for OAuth user:', checkData.existing_user);
                                     }
                                 } else {
                                     const errorData = await checkResponse.json().catch(() => ({}));
@@ -4049,92 +4044,17 @@
                                 }
                             } catch (checkError) {
                                 console.error('Error checking staff invite for OAuth user:', checkError);
-                                // Continue with signup flow even if check fails
+                                // Continue with mobile verification flow even if check fails
                             }
                         }
-                        
-                        // Get role from URL params if available, default to 'kasambahay'
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const role = urlParams.get('role') || 'kasambahay';
-                        
-                        // Extract name from OAuth provider metadata
-                        // Different providers use different field names:
-                        // Google: given_name, family_name, name
-                        // Apple: firstName, lastName, fullName
-                        // Facebook: first_name, last_name, name
-                        const fullName = userMetadata.full_name || 
-                                         userMetadata.name || 
-                                         `${userMetadata.first_name || userMetadata.given_name || userMetadata.firstName || ''} ${userMetadata.last_name || userMetadata.family_name || userMetadata.lastName || ''}`.trim() ||
-                                         user.email?.split('@')[0] || 
-                                         'User';
-                        
-                        const firstName = userMetadata.first_name || 
-                                         userMetadata.given_name || 
-                                         userMetadata.firstName ||
-                                         fullName.split(' ')[0] || 
-                                         'User';
-                        
-                        const lastName = userMetadata.last_name || 
-                                        userMetadata.family_name || 
-                                        userMetadata.lastName || 
-                                        fullName.split(' ').slice(1).join(' ') || 
-                                        '';
-
-                        console.log('Calling signup-user with OAuth user data:', { role, fullName, firstName, lastName, hasStaffInvite: !!staffInvite });
-
-                        // Build signup payload with staff invite info if found
-                        const signupPayload = {
-                            role,
-                            full_name: fullName,
-                            first_name: firstName,
-                            last_name: lastName,
-                            email: user.email || null,
-                            // OAuth users don't have passwords - backend should handle this
-                            password: 'oauth_authenticated_user_no_password_required',
-                            // mobile_no will be added later when user verifies OTP
-                            mobile_no: null
-                        };
-                        
-                        // Include staff invite info if found (backend can use this)
-                        if (staffInvite) {
-                            console.log('Including staff invite data in signup payload:', staffInvite);
-                            signupPayload.staff_invite_id = staffInvite.id;
-                        }
-
-                        const response = await fetch(SIGNUP_ENDPOINT, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${session.access_token}`,
-                                'apikey': window.SUPABASE_ANON_KEY,
-                            },
-                            body: JSON.stringify(signupPayload),
-                        });
-
-                        // Handle response - 409 means user already exists, which is fine
-                        // Backend will automatically check staff_invite table and handle appropriately
-                        if (!response.ok && response.status !== 409) {
-                            const result = await response.json().catch(() => ({}));
-                            const errorMsg = result.error || result.message || 'Failed to finalize signup';
-                            
-                            // Log error for debugging but continue with mobile OTP flow
-                            // Backend should handle staff invites, but if it fails we continue anyway
-                            console.warn('Signup endpoint returned error:', errorMsg);
-                            
-                            // Only throw if it's a critical error (not user already exists)
-                            if (response.status !== 400 && response.status !== 409) {
-                                throw new Error(errorMsg);
-                            }
-                        }
-
-                        console.log('Provider signup finalized successfully');
-                    } catch (finalizeError) {
-                        console.error('Finalize provider signup error:', finalizeError);
-                        // Still show mobile OTP screen even if finalize fails
+                    } catch (checkError) {
+                        console.error('Error during staff invite check:', checkError);
+                        // Continue with mobile verification flow even if check fails
                     }
 
-                    // Show mobile OTP screen to collect mobile number
-                    console.log('Showing mobile OTP screen...');
+                    // Show mobile OTP screen to verify mobile number first
+                    // signup-user will be called after mobile verification is complete
+                    console.log('Showing mobile OTP screen for verification...');
                     // Small delay to ensure DOM is ready
                     setTimeout(() => {
                         showMobileOtpScreenAfterOAuth();
