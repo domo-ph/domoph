@@ -111,47 +111,63 @@ BEGIN
 
   -- ============================================================================
   -- Determine role: Check staff_invite table if phone exists, otherwise use metadata
+  -- FIX: Wrap in exception handling to handle missing table gracefully
   -- ============================================================================
   user_role := COALESCE(NEW.raw_user_meta_data->>'role', 'amo');
   
   -- Check staff_invite table if phone number exists
-  IF normalized_phone IS NOT NULL AND normalized_phone != '' THEN
-    RAISE LOG 'Checking staff_invite for normalized phone: %', normalized_phone;
-    
-    SELECT id, household_id, mobile, email, role, status
-    INTO staff_invite_record
-    FROM staff_invite
-    WHERE normalize_phone_number(mobile) = normalized_phone
-      AND status = 'new'
-    ORDER BY created_at DESC
-    LIMIT 1;
-    
-    IF FOUND THEN
-      staff_invite_found := TRUE;
-      -- Phone found in staff_invite, user MUST be kasambahay
-      user_role := 'kasambahay';
-      RAISE LOG '📋 User role set to kasambahay (found in staff_invite: %, phone: %)', 
-        staff_invite_record.id, user_phone;
+  -- Wrap in exception handling in case table doesn't exist
+  BEGIN
+    IF normalized_phone IS NOT NULL AND normalized_phone != '' THEN
+      RAISE LOG 'Checking staff_invite for normalized phone: %', normalized_phone;
+      
+      SELECT id, household_id, mobile, email, role, status
+      INTO staff_invite_record
+      FROM staff_invite
+      WHERE normalize_phone_number(mobile) = normalized_phone
+        AND status = 'new'
+      ORDER BY created_at DESC
+      LIMIT 1;
+      
+      IF FOUND THEN
+        staff_invite_found := TRUE;
+        -- Phone found in staff_invite, user MUST be kasambahay
+        user_role := 'kasambahay';
+        RAISE LOG '📋 User role set to kasambahay (found in staff_invite: %, phone: %)', 
+          staff_invite_record.id, user_phone;
+      END IF;
     END IF;
-  END IF;
-  
-  -- Also check by email if no phone match found
-  IF NOT staff_invite_found AND normalized_email IS NOT NULL THEN
-    SELECT id, household_id, mobile, email, role, status
-    INTO staff_invite_record
-    FROM staff_invite
-    WHERE LOWER(TRIM(email)) = normalized_email
-      AND status = 'new'
-    ORDER BY created_at DESC
-    LIMIT 1;
     
-    IF FOUND THEN
-      staff_invite_found := TRUE;
-      user_role := 'kasambahay';
-      RAISE LOG '📋 User role set to kasambahay (found in staff_invite by email: %)', 
-        staff_invite_record.id;
+    -- Also check by email if no phone match found
+    IF NOT staff_invite_found AND normalized_email IS NOT NULL THEN
+      SELECT id, household_id, mobile, email, role, status
+      INTO staff_invite_record
+      FROM staff_invite
+      WHERE LOWER(TRIM(email)) = normalized_email
+        AND status = 'new'
+      ORDER BY created_at DESC
+      LIMIT 1;
+      
+      IF FOUND THEN
+        staff_invite_found := TRUE;
+        user_role := 'kasambahay';
+        RAISE LOG '📋 User role set to kasambahay (found in staff_invite by email: %)', 
+          staff_invite_record.id;
+      END IF;
     END IF;
-  END IF;
+  EXCEPTION
+    WHEN undefined_table THEN
+      -- staff_invite table doesn't exist, default to amo role
+      RAISE LOG '⚠️ staff_invite table does not exist, defaulting to amo role for user: %', NEW.email;
+      staff_invite_found := FALSE;
+      -- user_role already defaults to 'amo' above, so no need to set it
+    WHEN OTHERS THEN
+      -- Any other error checking staff_invite, log and continue with amo role
+      RAISE LOG '⚠️ Error checking staff_invite table: % (SQLSTATE: %). Defaulting to amo role for user: %', 
+        SQLERRM, SQLSTATE, NEW.email;
+      staff_invite_found := FALSE;
+      -- user_role already defaults to 'amo' above, so no need to set it
+  END;
   
   RAISE LOG '📋 Final user role determined: %', user_role;
 
@@ -602,6 +618,71 @@ BEGIN
         RAISE LOG '⚠️ User can create household manually later';
       END;
     END IF;
+  END IF;
+
+  -- ============================================================================
+  -- STAFF INVITE UPDATE: Mark staff_invite as done and link to user
+  -- ============================================================================
+  -- This ensures staff_invite is updated when OAuth creates a user via trigger
+  -- (The edge function also tries to update this, but the trigger runs first)
+  IF staff_invite_found AND staff_invite_record.id IS NOT NULL THEN
+    BEGIN
+      RAISE LOG '📋 Updating staff_invite record: % (household_id: %)', 
+        staff_invite_record.id, staff_invite_record.household_id;
+      
+      -- Ensure we have the user record (refresh it to get latest data)
+      SELECT id, household, role INTO user_record
+      FROM users
+      WHERE id = NEW.id;
+      
+      IF user_record.id IS NULL THEN
+        RAISE WARNING '⚠️ User record not found for staff_invite update';
+      ELSE
+        -- Update staff_invite: set status to 'done' and link user_id
+        UPDATE staff_invite
+        SET 
+          status = 'done',
+          user_id = user_record.id,
+          updated_at = NOW()
+        WHERE id = staff_invite_record.id
+          AND status = 'new';  -- Only update if still 'new' (idempotent)
+        
+        RAISE LOG '✅ Staff invite updated: status=done, user_id=%', user_record.id;
+        
+        -- If staff_invite has a household_id, assign it to the user
+        IF staff_invite_record.household_id IS NOT NULL THEN
+          -- Update user's household if not already set
+          IF user_record.household IS NULL THEN
+            UPDATE users
+            SET household = staff_invite_record.household_id
+            WHERE id = user_record.id;
+            
+            RAISE LOG '✅ User household assigned from staff_invite: %', staff_invite_record.household_id;
+          ELSE
+            RAISE LOG '⚠️ User already has household: %, not overwriting with staff_invite household: %', 
+              user_record.household, staff_invite_record.household_id;
+          END IF;
+          
+          -- Ensure household_members entry exists
+          IF NOT EXISTS (
+            SELECT 1 FROM household_members 
+            WHERE household_id = staff_invite_record.household_id 
+            AND user_id = user_record.id
+          ) THEN
+            INSERT INTO household_members (household_id, user_id)
+            VALUES (staff_invite_record.household_id, user_record.id);
+            RAISE LOG '✅ User added to household_members from staff_invite';
+          ELSE
+            RAISE LOG '⚠️ User already in household_members, skipping insert';
+          END IF;
+        END IF;
+      END IF;
+      
+    EXCEPTION WHEN OTHERS THEN
+      -- Log error but don't fail the trigger - user creation should succeed
+      RAISE WARNING '❌ Error updating staff_invite: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
+      RAISE LOG '⚠️ Staff invite can be updated later by edge function';
+    END;
   END IF;
 
   -- Log successful trigger execution (FIXED: Use boolean flag)

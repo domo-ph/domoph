@@ -3350,9 +3350,43 @@
                         // Truncate fields to fit database constraints (VARCHAR(20) for nickname)
                         const truncatedFirstName = firstName.length > 20 ? firstName.substring(0, 20) : firstName;
                         
+                        // IMPORTANT: Update auth user's phone and metadata BEFORE calling signup-user
+                        // This ensures the mobile number is saved in the database so the trigger
+                        // can find staff_invite by mobile number
+                        console.log('Updating auth user with verified mobile number:', fullMobileNumber);
+                        try {
+                            const { data: updateData, error: updateError } = await supabaseClient.auth.updateUser({
+                                phone: fullMobileNumber,
+                                data: {
+                                    ...userMetadata,
+                                    mobile_no: fullMobileNumber,
+                                    phone: fullMobileNumber,
+                                    full_name: fullName,
+                                    first_name: firstName,
+                                    last_name: lastName
+                                }
+                            });
+                            
+                            if (updateError) {
+                                console.warn('Failed to update auth user metadata:', updateError);
+                                // Continue anyway - signup-user will handle it
+                            } else {
+                                console.log('Successfully updated auth user with mobile number');
+                                // Refresh session to get updated user data
+                                const { data: { session: refreshedSession } } = await supabaseClient.auth.refreshSession();
+                                if (refreshedSession) {
+                                    session = refreshedSession;
+                                }
+                            }
+                        } catch (updateErr) {
+                            console.warn('Error updating auth user metadata:', updateErr);
+                            // Continue anyway - signup-user will handle it
+                        }
+                        
                         // For OAuth users, we send all required fields
                         // The backend should recognize this is an OAuth user via the access_token
                         // and handle the password field appropriately (ignore it or use a placeholder)
+                        // Use refreshed session token if available (session was updated above)
                         const linkMobileResponse = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
                             headers: {
