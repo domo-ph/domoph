@@ -160,10 +160,14 @@ serve(async (req) => {
                 .eq('status', 'new')
                 .maybeSingle()
 
-            if (!mobileError && inviteByMobile) {
+            if (mobileError) {
+                console.error('Error looking up staff invite by mobile:', mobileError)
+            } else if (!inviteByMobile) {
+                console.log('No staff invite found for mobile:', normalizedMobile, 'or', mobile_no)
+            } else {
                 staffInviteFound = inviteByMobile
                 userRole = 'kasambahay'
-                console.log('Staff invite found by mobile:', normalizedMobile)
+                console.log('Staff invite found by mobile:', normalizedMobile, 'invite:', inviteByMobile)
             }
         }
 
@@ -176,18 +180,71 @@ serve(async (req) => {
                 .eq('status', 'new')
                 .maybeSingle()
 
-            if (!emailError && inviteByEmail) {
+            if (emailError) {
+                console.error('Error looking up staff invite by email:', emailError)
+            } else if (!inviteByEmail) {
+                console.log('No staff invite found for email:', normalizedEmail, 'or', email)
+            } else {
                 staffInviteFound = inviteByEmail
                 userRole = 'kasambahay'
-                console.log('Staff invite found by email:', normalizedEmail)
+                console.log('Staff invite found by email:', normalizedEmail, 'invite:', inviteByEmail)
             }
         }
 
-        // Prepare user metadata (truncate fields to fit database constraints)
+        // Log staff invite lookup result
+        console.log('📋 Staff invite lookup result:', {
+            staffInviteFound: !!staffInviteFound,
+            userRole: userRole,
+            staffInviteId: staffInviteFound?.id,
+            staffInviteRole: staffInviteFound?.role,
+            staffInviteName: staffInviteFound?.name,
+            normalizedEmail: normalizedEmail,
+            normalizedMobile: normalizedMobile
+        })
+
+        // After the initial staff invite lookup, if role is kasambahay but no invite found, try again
+        if (userRole === 'kasambahay' && !staffInviteFound) {
+            console.warn('⚠️ Role is kasambahay but no staff invite found - attempting lookup again')
+            // Retry the lookup with more lenient matching or different status
+            if (normalizedEmail) {
+                const { data: inviteByEmail, error: emailError } = await supabaseAdmin
+                    .from('staff_invite')
+                    .select('*')
+                    .eq('email', normalizedEmail)
+                    .maybeSingle()
+                
+                if (!emailError && inviteByEmail) {
+                    staffInviteFound = inviteByEmail
+                    console.log('Staff invite found on retry:', inviteByEmail)
+                } else if (emailError) {
+                    console.error('Error on retry lookup:', emailError)
+                } else {
+                    console.log('No staff invite found on retry for email:', normalizedEmail)
+                }
+            }
+            
+            // Also try by mobile if available
+            if (!staffInviteFound && normalizedMobile) {
+                const { data: inviteByMobile, error: mobileError } = await supabaseAdmin
+                    .from('staff_invite')
+                    .select('*')
+                    .eq('mobile', normalizedMobile)
+                    .maybeSingle()
+                
+                if (!mobileError && inviteByMobile) {
+                    staffInviteFound = inviteByMobile
+                    console.log('Staff invite found on retry by mobile:', inviteByMobile)
+                } else if (mobileError) {
+                    console.error('Error on retry mobile lookup:', mobileError)
+                }
+            }
+        }
+
+        // Prepare user metadata
         const userMetadata: Record<string, any> = {
             full_name: full_name || '',
-            first_name: truncateString(first_name || full_name?.split(' ')[0] || '', 20),
-            last_name: truncateString(last_name || full_name?.split(' ').slice(1).join(' ') || '', 20),
+            first_name: first_name || full_name?.split(' ')[0] || '',
+            last_name: last_name || full_name?.split(' ').slice(1).join(' ') || '',
             mobile_no: normalizedMobile || mobile_no,
             role: userRole
         }
@@ -477,10 +534,12 @@ serve(async (req) => {
                             // backfill basic profile fields if missing
                             email: normalizedEmail || pendingUser.email,
                             mobile_no: normalizedMobile || mobile_no || pendingUser.mobile_no,
-                            role: userRole || pendingUser.role,
+                            role: userRole, // Use userRole which is already set correctly by staff invite check
                             full_name: full_name || pendingUser.full_name,
-                            first_name: truncateString(first_name || pendingUser.first_name, 20),
-                            last_name: truncateString(last_name || pendingUser.last_name, 20),
+                            first_name: first_name || pendingUser.first_name || '',
+                            last_name: last_name || pendingUser.last_name || '',
+                            nick_name: staffInviteFound?.name || pendingUser.nick_name || null,
+                            specific_role: staffInviteFound ? staffInviteFound.role : pendingUser.specific_role,
                         })
                         .eq('id', pendingUser.id)
                         .eq('is_pending_signup', true)
@@ -513,10 +572,12 @@ serve(async (req) => {
                     authid: authUserId,
                     email: normalizedEmail || null,
                     full_name: full_name || '',
-                    first_name: truncateString(first_name || full_name?.split(' ')[0] || '', 20),
-                    last_name: truncateString(last_name || full_name?.split(' ').slice(1).join(' ') || '', 20),
+                    first_name: first_name || full_name?.split(' ')[0] || '',
+                    last_name: last_name || full_name?.split(' ').slice(1).join(' ') || '',
                     mobile_no: normalizedMobile || mobile_no || null,
                     role: userRole,
+                    nick_name: staffInviteFound?.name || null,
+                    specific_role: staffInviteFound ? staffInviteFound.role : null,
                     onboarded: false,
                     onboarding_page: null
                 })
@@ -543,8 +604,10 @@ serve(async (req) => {
                     role: userRole,
                     email: normalizedEmail || existingUser.email,
                     full_name: full_name || existingUser.full_name,
-                    first_name: truncateString(first_name || existingUser.first_name, 20),
-                    last_name: truncateString(last_name || existingUser.last_name, 20)
+                    first_name: first_name || existingUser.first_name || '',
+                    last_name: last_name || existingUser.last_name || '',
+                    nick_name: staffInviteFound?.name || existingUser.nick_name || null,
+                    specific_role: staffInviteFound ? staffInviteFound.role : existingUser.specific_role
                 })
                 .eq('authid', authUserId)
 
@@ -555,29 +618,64 @@ serve(async (req) => {
 
         // If staff invite was found, assign household, set specific_role, ensure membership, and mark invite as done
         if (staffInviteFound) {
+            console.log('✅ Staff invite found - proceeding with household and specific_role assignment:', {
+                staffInviteId: staffInviteFound.id,
+                staffInviteRole: staffInviteFound.role,
+                staffInviteName: staffInviteFound.name,
+                staffInviteHouseholdId: staffInviteFound.household_id,
+                authUserId: authUserId
+            })
+            
             // 1) Fetch the user profile (to get users.id)
             const { data: userRow, error: userFetchError } = await supabaseAdmin
                 .from('users')
-                .select('id, household')
+                .select('id, household, specific_role')
                 .eq('authid', authUserId)
                 .maybeSingle()
 
             if (userFetchError || !userRow) {
-                console.error('Failed to fetch users row for household assignment:', userFetchError)
+                console.error('❌ Failed to fetch users row for household assignment:', userFetchError)
             } else {
+                console.log('📋 Current user row before update:', {
+                    userId: userRow.id,
+                    currentHousehold: userRow.household,
+                    currentSpecificRole: userRow.specific_role
+                })
+                
                 const householdId = staffInviteFound.household_id
-                // 2) Update users table with household and specific_role (idempotent)
-                const { error: userUpdateHouseholdError } = await supabaseAdmin
+                console.log('🔍 Staff invite update - Preparing to update user:', {
+                    userId: userRow.id,
+                    householdId: householdId,
+                    specific_role: staffInviteFound.role,
+                    nick_name: staffInviteFound.name,
+                    staffInviteId: staffInviteFound.id,
+                    staffInviteData: staffInviteFound
+                })
+                
+                // 2) Update users table with household, specific_role, and nick_name (idempotent)
+                // specific_role should always match the role from staff_invite
+                const { error: userUpdateHouseholdError, data: updateResult } = await supabaseAdmin
                     .from('users')
                     .update({
                         household: householdId,
-                        specific_role: staffInviteFound.role || null,
+                        specific_role: staffInviteFound.role,
+                        nick_name: staffInviteFound.name || null,
                     })
                     .eq('id', userRow.id)
+                    .select('id, household, specific_role, nick_name')
 
                 if (userUpdateHouseholdError) {
-                    console.error('Failed to update users.household/specific_role:', userUpdateHouseholdError)
+                    console.error('❌ Failed to update users.household/specific_role:', userUpdateHouseholdError)
                 } else {
+                    console.log('✅ Successfully updated user with staff invite data:', updateResult)
+                    if (updateResult && updateResult.length > 0) {
+                        console.log('📊 Updated user record:', {
+                            id: updateResult[0].id,
+                            household: updateResult[0].household,
+                            specific_role: updateResult[0].specific_role,
+                            nick_name: updateResult[0].nick_name
+                        })
+                    }
                     // 3) Ensure household_members entry exists (idempotent)
                     const { data: existingMember, error: memberCheckError } = await supabaseAdmin
                         .from('household_members')

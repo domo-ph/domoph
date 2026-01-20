@@ -2047,6 +2047,7 @@
         let selectedCountryCode_iso = 'PH';
         let pendingSignupData = null;
         let currentVerifyingMobileNumber = null; // Store mobile number being verified for resend
+        let isProcessingOAuth = false; // Flag to prevent concurrent OAuth processing
 
         // Common countries list (matching React Native MobileInput)
         const countries = [
@@ -3870,6 +3871,34 @@
 
         // Process OAuth callback: set session, call signup-user, then show success
         async function processOAuthCallback() {
+            // Synchronous checks to prevent duplicate processing
+            const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
+            if (alreadyProcessed) {
+                console.log('OAuth callback already processed, checking if should show mobile OTP screen...');
+                try {
+                    initSupabase();
+                    if (supabaseClient) {
+                        const { data: sessionData } = await supabaseClient.auth.getSession();
+                        if (sessionData?.session) {
+                            console.log('Found active session, showing mobile OTP screen...');
+                            showMobileOtpScreenAfterOAuth();
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error checking session after OAuth:', e);
+                }
+                return;
+            }
+
+            // Check processing flag to prevent concurrent execution
+            if (isProcessingOAuth) {
+                console.log('OAuth callback already being processed, skipping duplicate call...');
+                return;
+            }
+
+            // Set flag immediately to prevent concurrent calls
+            isProcessingOAuth = true;
+
             try {
                 initSupabase();
                 if (!supabaseClient) {
@@ -3881,19 +3910,6 @@
                 console.log('Current URL:', window.location.href);
                 console.log('URL hash:', window.location.hash);
                 console.log('URL search:', window.location.search);
-
-                // Check if we've already processed this callback
-                const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
-                if (alreadyProcessed) {
-                    console.log('OAuth callback already processed, checking if should show mobile OTP screen...');
-                    // If already processed, check if user has active session and show mobile OTP screen
-                    const { data: sessionData } = await supabaseClient.auth.getSession();
-                    if (sessionData?.session) {
-                        console.log('Found active session, showing mobile OTP screen...');
-                        showMobileOtpScreenAfterOAuth();
-                    }
-                    return;
-                }
 
                 // Check for OAuth tokens in URL (hash, query params, or full URL)
                 const tokens = parseOAuthTokens();
@@ -3956,13 +3972,56 @@
 
                     // Call signup-user edge function to create user profile
                     try {
-                        // Get role from URL params if available, default to 'kasambahay'
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const role = urlParams.get('role') || 'kasambahay';
-
                         // Extract user info from OAuth session
                         const user = session.user;
                         const userMetadata = user.user_metadata || {};
+                        
+                        // Normalize email for staff invite check
+                        const normalizedEmail = user.email ? user.email.trim().toLowerCase() : null;
+                        
+                        // Check for staff invite before calling signup-user
+                        let staffInvite = null;
+                        let existingUser = null;
+                        
+                        if (normalizedEmail) {
+                            try {
+                                console.log('Checking for staff invite with email:', normalizedEmail);
+                                const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                                        'apikey': window.SUPABASE_ANON_KEY
+                                    },
+                                    body: JSON.stringify({
+                                        email: normalizedEmail,
+                                        mobile_no: null // Mobile number not available yet in OAuth flow
+                                    })
+                                });
+
+                                if (checkResponse.ok) {
+                                    const checkData = await checkResponse.json();
+                                    if (checkData.has_staff_invite) {
+                                        staffInvite = checkData.staff_invite;
+                                        console.log('Staff invite found for OAuth user:', staffInvite);
+                                    }
+                                    if (checkData.has_existing_user) {
+                                        existingUser = checkData.existing_user;
+                                        console.log('Existing user found for OAuth user:', existingUser);
+                                    }
+                                } else {
+                                    const errorData = await checkResponse.json().catch(() => ({}));
+                                    console.warn('Check staff invite returned error:', errorData);
+                                }
+                            } catch (checkError) {
+                                console.error('Error checking staff invite for OAuth user:', checkError);
+                                // Continue with signup flow even if check fails
+                            }
+                        }
+                        
+                        // Get role from URL params if available, default to 'kasambahay'
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const role = urlParams.get('role') || 'kasambahay';
                         
                         // Extract name from OAuth provider metadata
                         // Different providers use different field names:
@@ -3987,7 +4046,26 @@
                                         fullName.split(' ').slice(1).join(' ') || 
                                         '';
 
-                        console.log('Calling signup-user with OAuth user data:', { role, fullName, firstName, lastName });
+                        console.log('Calling signup-user with OAuth user data:', { role, fullName, firstName, lastName, hasStaffInvite: !!staffInvite });
+
+                        // Build signup payload with staff invite info if found
+                        const signupPayload = {
+                            role,
+                            full_name: fullName,
+                            first_name: firstName,
+                            last_name: lastName,
+                            email: user.email || null,
+                            // OAuth users don't have passwords - backend should handle this
+                            password: 'oauth_authenticated_user_no_password_required',
+                            // mobile_no will be added later when user verifies OTP
+                            mobile_no: null
+                        };
+                        
+                        // Include staff invite info if found (backend can use this)
+                        if (staffInvite) {
+                            console.log('Including staff invite data in signup payload:', staffInvite);
+                            signupPayload.staff_invite_id = staffInvite.id;
+                        }
 
                         const response = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
@@ -3996,17 +4074,7 @@
                                 'Authorization': `Bearer ${session.access_token}`,
                                 'apikey': window.SUPABASE_ANON_KEY,
                             },
-                            body: JSON.stringify({
-                                role,
-                                full_name: fullName,
-                                first_name: firstName,
-                                last_name: lastName,
-                                email: user.email || null,
-                                // OAuth users don't have passwords - backend should handle this
-                                password: 'oauth_authenticated_user_no_password_required',
-                                // mobile_no will be added later when user verifies OTP
-                                mobile_no: null
-                            }),
+                            body: JSON.stringify(signupPayload),
                         });
 
                         // Handle response - 409 means user already exists, which is fine
@@ -4044,8 +4112,12 @@
             } catch (e) {
                 console.error('OAuth callback processing error:', e);
                 showError('An error occurred. Please try again.');
+                // Clear processing flag on error so user can retry
+                isProcessingOAuth = false;
             } finally {
                 setProviderButtonsDisabled(false);
+                // Clear processing flag after completion
+                isProcessingOAuth = false;
             }
         }
 
@@ -4090,21 +4162,19 @@
             }
         }
 
-        // OAuth return handling on page load
-        window.addEventListener('DOMContentLoaded', () => {
+        // OAuth return handling on page load - consolidated to prevent duplicate calls
+        function initializeOAuthHandling() {
             setupAuthStateListener();
             processOAuthCallback();
             checkExistingSessionAndShowMobileOtp();
-        });
+        }
 
-        // Also check immediately in case DOMContentLoaded already fired
         if (document.readyState === 'loading') {
-            // DOMContentLoaded will fire
+            // DOM still loading, wait for DOMContentLoaded
+            window.addEventListener('DOMContentLoaded', initializeOAuthHandling);
         } else {
             // DOM already loaded, process immediately
-            setupAuthStateListener();
-            processOAuthCallback();
-            checkExistingSessionAndShowMobileOtp();
+            initializeOAuthHandling();
         }
 
         // Form initialization happens when showEmailMobileForm() is called
