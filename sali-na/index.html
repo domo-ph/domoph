@@ -3202,11 +3202,19 @@
             const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : mobile.replace(/\D/g, '');
             
             // Check if this is an OAuth user (has active session) - skip staff invite check for OAuth users
+            // OAuth users should not have pendingSignupData, but we check session to be sure
             let isOAuthUser = false;
+            if (!supabaseClient) {
+                // Ensure supabaseClient is initialized
+                initSupabase();
+            }
             if (supabaseClient) {
                 try {
                     const { data: sessionData } = await supabaseClient.auth.getSession();
                     isOAuthUser = !!sessionData?.session;
+                    if (isOAuthUser) {
+                        console.log('OAuth user detected - skipping staff invite check');
+                    }
                 } catch (e) {
                     // If we can't check session, assume not OAuth user
                     console.warn('Could not check session for OAuth status:', e);
@@ -3214,6 +3222,7 @@
             }
             
             // Check for staff invite by mobile using edge function (skip for OAuth users)
+            // OAuth users will have staff invite checked by signup-user edge function after mobile verification
             if (!isOAuthUser && pendingSignupData && !pendingSignupData.staffInvite) {
                 try {
                     const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
@@ -3362,17 +3371,15 @@
                         // Truncate fields to fit database constraints (VARCHAR(20) for nickname)
                         const truncatedFirstName = firstName.length > 20 ? firstName.substring(0, 20) : firstName;
                         
-                        // IMPORTANT: Update auth user's phone and metadata BEFORE calling signup-user
-                        // This ensures the mobile number is saved in the database so the trigger
-                        // can find staff_invite by mobile number
-                        console.log('Updating auth user with verified mobile number:', fullMobileNumber);
+                        // IMPORTANT: Update auth user's metadata (NOT phone field) BEFORE calling signup-user
+                        // Setting phone field triggers SMS verification which requires SMS provider configuration
+                        // We only update metadata - the mobile number will be saved via signup-user edge function
+                        console.log('Updating auth user metadata with verified mobile number:', fullMobileNumber);
                         try {
                             const { data: updateData, error: updateError } = await supabaseClient.auth.updateUser({
-                                phone: fullMobileNumber,
                                 data: {
                                     ...userMetadata,
                                     mobile_no: fullMobileNumber,
-                                    phone: fullMobileNumber,
                                     full_name: fullName,
                                     first_name: firstName,
                                     last_name: lastName
@@ -3383,7 +3390,7 @@
                                 console.warn('Failed to update auth user metadata:', updateError);
                                 // Continue anyway - signup-user will handle it
                             } else {
-                                console.log('Successfully updated auth user with mobile number');
+                                console.log('Successfully updated auth user metadata with mobile number');
                                 // Refresh session to get updated user data
                                 const { data: { session: refreshedSession } } = await supabaseClient.auth.refreshSession();
                                 if (refreshedSession) {
@@ -3407,7 +3414,7 @@
                                 'apikey': window.SUPABASE_ANON_KEY,
                             },
                             body: JSON.stringify({
-                                mobile_no: fullMobileNumber,
+                                mobile_no: fullMobileNumber, // Normalized mobile number for staff invite lookup
                                 full_name: fullName,
                                 first_name: truncatedFirstName,
                                 last_name: null,
