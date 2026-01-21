@@ -3414,6 +3414,7 @@
                                 'apikey': window.SUPABASE_ANON_KEY,
                             },
                             body: JSON.stringify({
+                                email: user.email, // Include email for staff invite lookup by email
                                 mobile_no: fullMobileNumber, // Normalized mobile number for staff invite lookup
                                 full_name: fullName,
                                 first_name: truncatedFirstName,

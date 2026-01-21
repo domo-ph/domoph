@@ -146,9 +146,18 @@ serve(async (req) => {
         const normalizedEmail = normalizeEmail(email)
         const normalizedMobile = normalizePhone(mobile_no)
 
-        // Check staff_invite table for matching mobile number or email (status=new)
+        // For OAuth users, always enforce 'kasambahay' role since this is a kasambahay signup path
+        // For regular signup, check staff_invite table for matching mobile number or email (status=new)
         // Prefer mobile match first, then email
-        let userRole = role || 'amo' // Default role (or from request)
+        let userRole = 'amo' // Default role
+        if (isOAuthUser) {
+            // OAuth users in this flow are always kasambahay
+            userRole = 'kasambahay'
+            console.log('OAuth user detected - enforcing kasambahay role')
+        } else {
+            // For regular signup, use role from request or default to 'amo'
+            userRole = role || 'amo'
+        }
         let staffInviteFound = null
 
         // Check by mobile number first (try exact and basic variants)
