@@ -660,6 +660,36 @@
             display: block;
         }
 
+        /* Token Loading State */
+        .token-loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl);
+            gap: var(--spacing-m);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: var(--surface-subtle);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--surface-subtle);
+            text-align: center;
+        }
+
         /* Country Picker Modal */
         .modal-overlay {
             display: none;
@@ -1853,7 +1883,38 @@
 
         <!-- Form Section (Initially Hidden) -->
         <div id="formSection" class="form-section">
+            <!-- Loading State for Token Check -->
+            <div id="tokenLoadingState" class="token-loading-state" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Sinusuri ang invite link...</p>
+            </div>
+
+            <!-- Token Error Message -->
+            <div id="tokenErrorMessage" class="error-message" role="alert" style="display: none;"></div>
+
             <form id="signupForm" onsubmit="handleSignup(event)">
+                <!-- Email Field (shown when token is present) -->
+                <div class="form-group" id="emailFieldGroup" style="display: none;">
+                    <div class="mobile-input-container">
+                        <label for="email" class="mobile-input-inline-label">Email</label>
+                        <div class="mobile-input-row">
+                            <input type="email" id="email" name="email" class="mobile-input-field"
+                                placeholder="email@example.com" autocomplete="email" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Name Field (shown when token is present) -->
+                <div class="form-group" id="nameFieldGroup" style="display: none;">
+                    <div class="mobile-input-container">
+                        <label for="name" class="mobile-input-inline-label">Pangalan</label>
+                        <div class="mobile-input-row">
+                            <input type="text" id="name" name="name" class="mobile-input-field"
+                                placeholder="Pangalan" autocomplete="name" />
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Mobile Field -->
                 <div class="form-group">
                     <div class="mobile-input-container">
@@ -2000,6 +2061,9 @@
                     errorMsg.classList.add('show');
                 }
             }
+            
+            // Check for token parameter and consume invite token
+            checkAndConsumeInviteToken();
         });
 
         // Supabase Edge Function endpoints
@@ -3280,6 +3344,26 @@
                         // The backend should recognize this is an OAuth user via the access_token
                         // and handle the password field appropriately (ignore it or use a placeholder)
                         // Use refreshed session token if available (session was updated above)
+                        const oauthPayload = {
+                            user_id: user.id, // OAuth user ID for staff invite lookup by user_id
+                            email: inviteTokenData?.email || user.email, // Use token email if available
+                            mobile_no: fullMobileNumber, // Normalized mobile number for staff invite lookup
+                            full_name: inviteTokenData?.name || fullName, // Use token name if available
+                            first_name: inviteTokenData?.name?.split(' ')[0] || truncatedFirstName,
+                            last_name: null,
+                            nickname: inviteTokenData?.nickname || truncatedFirstName,
+                            role: inviteTokenData?.role || 'kasambahay', // Use token role if available, otherwise kasambahay
+                            // OAuth users don't have passwords - backend should handle this
+                            // Sending placeholder that backend can ignore for OAuth users
+                            password: 'oauth_authenticated_user_no_password_required'
+                        };
+                        
+                        // Include token if present (for tokenized invite)
+                        if (inviteTokenData?.token) {
+                            oauthPayload.token = inviteTokenData.token;
+                            console.log('Sending OAuth signup with invite token:', inviteTokenData.token);
+                        }
+                        
                         const linkMobileResponse = await fetch(SIGNUP_ENDPOINT, {
                             method: 'POST',
                             headers: {
@@ -3287,19 +3371,7 @@
                                 'Authorization': `Bearer ${session.access_token}`,
                                 'apikey': window.SUPABASE_ANON_KEY,
                             },
-                            body: JSON.stringify({
-                                user_id: user.id, // OAuth user ID for staff invite lookup by user_id
-                                email: user.email, // Include email for staff invite lookup by email
-                                mobile_no: fullMobileNumber, // Normalized mobile number for staff invite lookup
-                                full_name: fullName,
-                                first_name: truncatedFirstName,
-                                last_name: null,
-                                nickname: truncatedFirstName,
-                                role: 'kasambahay', // OAuth users in this flow should always be kasambahay
-                                // OAuth users don't have passwords - backend should handle this
-                                // Sending placeholder that backend can ignore for OAuth users
-                                password: 'oauth_authenticated_user_no_password_required'
-                            }),
+                            body: JSON.stringify(oauthPayload),
                         });
 
                         // Handle response - 409 means user already exists
@@ -3327,17 +3399,33 @@
                         // Step 5: Combine the data (existing user data + new signup data)
                         const existingUserData = pendingSignupData.existingUser;
                         
-                        // Use existing user data if available, otherwise use defaults
-                        const firstName = existingUserData?.first_name || 'Kas';
+                        // Use token data if available, otherwise use existing user data or defaults
+                        const firstName = inviteTokenData?.name?.split(' ')[0] || 
+                                         inviteTokenData?.nickname || 
+                                         existingUserData?.first_name || 
+                                         'Kas';
+                        const fullName = inviteTokenData?.name || 
+                                        existingUserData?.full_name || 
+                                        'Kas User';
+                        const email = inviteTokenData?.email || 
+                                    pendingSignupData.email;
+                        
                         const signupPayload = {
-                            email: pendingSignupData.email,
+                            email: email,
                             password: pendingSignupData.password,
                             mobile_no: pendingSignupData.mobileE164,
-                            full_name: existingUserData?.full_name || 'Kas User',
+                            full_name: fullName,
                             first_name: firstName,
                             last_name: null,
-                            nickname: firstName
+                            nickname: inviteTokenData?.nickname || firstName,
+                            role: inviteTokenData?.role || null // Will be 'kasambahay' if from token
                         };
+                        
+                        // Include token if present (for tokenized invite)
+                        if (inviteTokenData?.token) {
+                            signupPayload.token = inviteTokenData.token;
+                            console.log('Sending signup with invite token:', inviteTokenData.token);
+                        }
                         
                         // Include staff invite info if found (backend can use this)
                         if (pendingSignupData.staffInvite) {
@@ -3408,6 +3496,150 @@
         function initSupabase() {
             if (window.supabase && SUPABASE_URL && window.SUPABASE_ANON_KEY) {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, window.SUPABASE_ANON_KEY);
+            }
+        }
+
+        // Tokenized invite handling
+        let inviteTokenData = null; // Store token data for signup
+
+        async function checkAndConsumeInviteToken() {
+            const searchParams = new URLSearchParams(window.location.search);
+            const token = searchParams.get('t');
+            
+            if (!token) {
+                // No token, proceed with normal signup
+                return;
+            }
+
+            // Show loading state
+            const tokenLoadingState = document.getElementById('tokenLoadingState');
+            const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+            const formSection = document.getElementById('formSection');
+            
+            if (tokenLoadingState) {
+                tokenLoadingState.style.display = 'flex';
+            }
+            if (tokenErrorMessage) {
+                tokenErrorMessage.style.display = 'none';
+                tokenErrorMessage.textContent = '';
+            }
+            if (formSection) {
+                formSection.style.display = 'none';
+            }
+
+            // Initialize Supabase client if needed
+            if (!supabaseClient) {
+                initSupabase();
+            }
+
+            if (!supabaseClient) {
+                hideTokenLoading();
+                showTokenError('Hindi ma-initialize ang connection. Pakisubukan ulit.');
+                return;
+            }
+
+            try {
+                // Call RPC function to consume invite token
+                const { data, error } = await supabaseClient.rpc('consume_invite_token', {
+                    token_uuid: token
+                });
+
+                hideTokenLoading();
+
+                if (error) {
+                    console.error('Error consuming invite token:', error);
+                    showTokenError(error.message || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.');
+                    // Show form to allow manual signup
+                    if (formSection) {
+                        formSection.style.display = 'block';
+                    }
+                    return;
+                }
+
+                if (!data || !data.success) {
+                    const errorMsg = data?.error || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.';
+                    showTokenError(errorMsg);
+                    // Show form to allow manual signup
+                    if (formSection) {
+                        formSection.style.display = 'block';
+                    }
+                    return;
+                }
+
+                // Success: Pre-fill fields and configure form
+                inviteTokenData = {
+                    token: token,
+                    email: data.data?.email || '',
+                    name: data.data?.name || data.data?.full_name || '',
+                    nickname: data.data?.nickname || '',
+                    role: 'kasambahay',
+                    household_id: data.data?.household_id || null
+                };
+
+                // Pre-fill email and name fields
+                const emailInput = document.getElementById('email');
+                const nameInput = document.getElementById('name');
+                const emailFieldGroup = document.getElementById('emailFieldGroup');
+                const nameFieldGroup = document.getElementById('nameFieldGroup');
+
+                if (emailInput && inviteTokenData.email) {
+                    emailInput.value = inviteTokenData.email;
+                    emailInput.readOnly = true; // Make read-only since it's from invite
+                }
+                if (nameInput && inviteTokenData.name) {
+                    nameInput.value = inviteTokenData.name;
+                }
+
+                // Show email and name fields
+                if (emailFieldGroup) {
+                    emailFieldGroup.style.display = 'block';
+                }
+                if (nameFieldGroup) {
+                    nameFieldGroup.style.display = 'block';
+                }
+
+                // Show form section
+                if (formSection) {
+                    formSection.style.display = 'block';
+                    formSection.classList.add('show');
+                }
+
+                // Auto-show form if not already visible
+                const logoSection = document.getElementById('logoSection');
+                const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+                const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+                
+                if (logoSection) logoSection.style.display = 'flex';
+                if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+                if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+
+                // Scroll to form
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            } catch (err) {
+                console.error('Unexpected error consuming invite token:', err);
+                hideTokenLoading();
+                showTokenError('May naging problema sa pag-process ng invite link. Pwede ka pa ring mag-signup manually.');
+                // Show form to allow manual signup
+                if (formSection) {
+                    formSection.style.display = 'block';
+                }
+            }
+        }
+
+        function hideTokenLoading() {
+            const tokenLoadingState = document.getElementById('tokenLoadingState');
+            if (tokenLoadingState) {
+                tokenLoadingState.style.display = 'none';
+            }
+        }
+
+        function showTokenError(message) {
+            const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+            if (tokenErrorMessage) {
+                tokenErrorMessage.textContent = message;
+                tokenErrorMessage.style.display = 'block';
+                tokenErrorMessage.classList.add('show');
             }
         }
 
