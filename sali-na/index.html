@@ -3998,59 +3998,11 @@
                     }
                 }
 
-                // If we have a session and haven't processed it yet, check staff invite and verify mobile
+                // If we have a session and haven't processed it yet, verify mobile
                 if (session) {
                     // Mark as processed immediately to prevent duplicate processing
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
-
-                    // Check for staff invite before mobile verification
-                    try {
-                        // Extract user info from OAuth session
-                        const user = session.user;
-                        const userMetadata = user.user_metadata || {};
-                        
-                        // Normalize email for staff invite check
-                        const normalizedEmail = user.email ? user.email.trim().toLowerCase() : null;
-                        
-                        // Check for staff invite - will be checked again by mobile number after verification
-                        if (normalizedEmail) {
-                            try {
-                                console.log('Checking for staff invite with email:', normalizedEmail);
-                                const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                                        'apikey': window.SUPABASE_ANON_KEY
-                                    },
-                                    body: JSON.stringify({
-                                        email: normalizedEmail,
-                                        mobile_no: null // Mobile number not available yet in OAuth flow
-                                    })
-                                });
-
-                                if (checkResponse.ok) {
-                                    const checkData = await checkResponse.json();
-                                    if (checkData.has_staff_invite) {
-                                        console.log('Staff invite found for OAuth user (will be linked after mobile verification):', checkData.staff_invite);
-                                    }
-                                    if (checkData.has_existing_user) {
-                                        console.log('Existing user found for OAuth user:', checkData.existing_user);
-                                    }
-                                } else {
-                                    const errorData = await checkResponse.json().catch(() => ({}));
-                                    console.warn('Check staff invite returned error:', errorData);
-                                }
-                            } catch (checkError) {
-                                console.error('Error checking staff invite for OAuth user:', checkError);
-                                // Continue with mobile verification flow even if check fails
-                            }
-                        }
-                    } catch (checkError) {
-                        console.error('Error during staff invite check:', checkError);
-                        // Continue with mobile verification flow even if check fails
-                    }
 
                     // Show mobile OTP screen to verify mobile number first
                     // signup-user will be called after mobile verification is complete
