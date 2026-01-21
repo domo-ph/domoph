@@ -63,7 +63,7 @@ serve(async (req) => {
         )
 
         // Parse request body
-        let { email, password, mobile_no, full_name, first_name, last_name, role } = await req.json()
+        let { email, password, mobile_no, full_name, first_name, last_name, role, user_id } = await req.json()
 
         // Check if this is an OAuth user FIRST (before validation)
         let isOAuthUser = false
@@ -160,8 +160,41 @@ serve(async (req) => {
         }
         let staffInviteFound = null
 
+        // For OAuth users, check staff_invite by user_id first (highest priority)
+        // This handles cases where staff invite was already linked to a user_id
+        if (isOAuthUser && user_id) {
+            // First, get the users.id from authid to use for staff_invite lookup
+            // We need to find the users row to get the actual user_id (not authid)
+            const { data: userRow, error: userRowError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('authid', user_id)
+                .maybeSingle()
+
+            if (!userRowError && userRow?.id) {
+                // Look up staff invite by user_id (users.id, not authid)
+                const { data: inviteByUserId, error: userIdError } = await supabaseAdmin
+                    .from('staff_invite')
+                    .select('*')
+                    .eq('user_id', userRow.id)
+                    .maybeSingle()
+
+                if (userIdError) {
+                    console.error('Error looking up staff invite by user_id:', userIdError)
+                } else if (inviteByUserId) {
+                    staffInviteFound = inviteByUserId
+                    userRole = 'kasambahay'
+                    console.log('Staff invite found by user_id:', userRow.id, 'invite:', inviteByUserId)
+                } else {
+                    console.log('No staff invite found for user_id:', userRow.id)
+                }
+            } else if (userRowError) {
+                console.warn('Error fetching user row for user_id lookup:', userRowError)
+            }
+        }
+
         // Check by mobile number first (try exact and basic variants)
-        if (normalizedMobile) {
+        if (!staffInviteFound && normalizedMobile) {
             const { data: inviteByMobile, error: mobileError } = await supabaseAdmin
                 .from('staff_invite')
                 .select('*')
@@ -208,7 +241,9 @@ serve(async (req) => {
             staffInviteRole: staffInviteFound?.role,
             staffInviteName: staffInviteFound?.name,
             normalizedEmail: normalizedEmail,
-            normalizedMobile: normalizedMobile
+            normalizedMobile: normalizedMobile,
+            user_id: user_id,
+            isOAuthUser: isOAuthUser
         })
 
         // After the initial staff invite lookup, if role is kasambahay but no invite found, try again
