@@ -1767,9 +1767,9 @@
             <div class="divider-line"></div>
         </div>
 
-        <!-- Email/Mobile Link Section -->
+        <!-- Mobile Link Section -->
         <div id="emailMobileLinkSection" class="email-mobile-link-section">
-            <button class="email-mobile-link" onclick="showEmailMobileForm()">Gamitin email/mobile nalang</button>
+            <button class="email-mobile-link" onclick="showEmailMobileForm()">Gamitin mobile nalang</button>
         </div>
 
         <!-- Mobile OTP Section (Initially Hidden) -->
@@ -1854,10 +1854,10 @@
         <!-- Form Section (Initially Hidden) -->
         <div id="formSection" class="form-section">
             <form id="signupForm" onsubmit="handleSignup(event)">
-                <!-- Email or Mobile Field -->
+                <!-- Mobile Field -->
                 <div class="form-group">
                     <div class="mobile-input-container">
-                        <label for="mobile" class="mobile-input-inline-label">Email or mobile</label>
+                        <label for="mobile" class="mobile-input-inline-label">Mobile No.</label>
                         <div class="mobile-input-row">
                             <button type="button" class="country-code-selector" id="countrySelector"
                                 onclick="toggleCountryPicker()">
@@ -1866,8 +1866,8 @@
                                 <span class="country-code-text" id="countryCode">+63</span>
                                 <span class="country-dropdown-icon">▼</span>
                             </button>
-                            <input type="text" id="mobile" name="mobile" class="mobile-input-field"
-                                placeholder="917 123 4567" autocomplete="username" required />
+                            <input type="tel" id="mobile" name="mobile" class="mobile-input-field"
+                                placeholder="917 123 4567" autocomplete="tel" required />
                         </div>
                     </div>
                 </div>
@@ -2014,7 +2014,6 @@
         // Form validation and state
         const form = document.getElementById('signupForm');
         const mobileInput = document.getElementById('mobile');
-        const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
         const submitButton = document.getElementById('submitButton');
         const errorMessage = document.getElementById('errorMessage');
@@ -2090,17 +2089,6 @@
         ];
 
         // Validation functions
-        function validateEmail(email) {
-            if (!email) return true; // Email is optional
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
-
-        function isEmailIdentifier(value) {
-            if (!value) return false;
-            return /@/.test(value) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-        }
-
         function getFlagImageSrc(countryIso) {
             if (!countryIso) return 'flag-icons/ph.svg';
             return `flag-icons/${countryIso.toLowerCase()}.svg`;
@@ -2173,61 +2161,35 @@
             }
 
             const identifier = mobileInput.value.trim();
-            const email = emailInput ? emailInput.value.trim() : '';
             const password = passwordInput.value.trim();
 
-            // Detect identifier type and toggle country selector visibility
-            const idIsEmail = isEmailIdentifier(identifier);
-            if (countrySelector) {
-                countrySelector.style.display = idIsEmail ? 'none' : 'flex';
-            }
-
-            let identifierValid = false;
-            if (idIsEmail) {
-                identifierValid = validateEmail(identifier);
-            } else {
-                identifierValid = validateMobile(identifier, selectedCountryCode_iso);
-            }
+            const identifierValid = validateMobile(identifier, selectedCountryCode_iso);
 
             const isFormValid =
                 identifier &&
                 password &&
                 validatePassword(password) &&
-                (email ? validateEmail(email) : true) &&
                 identifierValid;
 
             submitButton.disabled = !isFormValid;
         }
 
         // Add input listeners (only if inputs exist)
-        const formInputs = [mobileInput, emailInput, passwordInput].filter(input => input !== null);
+        const formInputs = [mobileInput, passwordInput].filter(input => input !== null);
         formInputs.forEach(input => {
             input.addEventListener('input', updateButtonState);
         });
-        // Masking handlers for the unified Email/Mobile field
+        // Masking handlers for the mobile field
         if (mobileInput) {
             mobileInput.addEventListener('blur', () => {
                 const val = mobileInput.value;
                 if (!val) return;
-                if (isEmailIdentifier(val)) return; // don't format emails
                 mobileInput.value = formatLocalForDisplay(val, selectedCountryCode_iso);
             });
             mobileInput.addEventListener('focus', () => {
                 // unmask to raw digits for easier editing
                 const val = mobileInput.value || '';
                 mobileInput.value = val.replace(/\D/g, '');
-            });
-            // Hide/show country code selector based on letter detection
-            mobileInput.addEventListener('input', () => {
-                const val = mobileInput.value || '';
-                const hasLetter = /[a-zA-Z]/.test(val);
-                if (countrySelector) {
-                    if (hasLetter) {
-                        countrySelector.style.display = 'none';
-                    } else {
-                        countrySelector.style.display = '';
-                    }
-                }
             });
         }
 
@@ -2398,17 +2360,10 @@
             hideSuccess();
 
             const identifier = mobileInput.value.trim();
-            const idIsEmail = isEmailIdentifier(identifier);
             const password = passwordInput.value.trim();
-            const extraEmail = emailInput ? emailInput.value.trim() : '';
 
             if (!identifier || !password) {
                 showError('Please fill in all required fields (mobile and password)');
-                return;
-            }
-
-            if (extraEmail && !validateEmail(extraEmail)) {
-                showError('Please enter a valid email address');
                 return;
             }
 
@@ -2417,7 +2372,7 @@
                 return;
             }
 
-            // Step 3: Check for existing staff_invite using email or mobile
+            // Step 3: Check for existing staff_invite using mobile
             // Step 4: If found, look at users table for existing record
             // Step 5: Combine the data then call signup-user
             
@@ -2427,20 +2382,13 @@
             let staffInvite = null;
             let existingUser = null;
             
-            // Normalize inputs (matching backend logic)
-            const normalizedEmail = idIsEmail ? (extraEmail || identifier).trim().toLowerCase() : null;
-            let normalizedMobile = null;
-            let initialFullMobileNumber = null;
-            
-            if (!idIsEmail) {
-                // Normalize mobile number
-                let mobileDigits = identifier.replace(/\D/g, '');
-                if (selectedCountryCode_iso === 'PH') {
-                    mobileDigits = mobileDigits.replace(/^0+/, '');
-                }
-                initialFullMobileNumber = selectedCountryCode + mobileDigits;
-                normalizedMobile = normalizePhone(initialFullMobileNumber);
+            // Normalize mobile number
+            let mobileDigits = identifier.replace(/\D/g, '');
+            if (selectedCountryCode_iso === 'PH') {
+                mobileDigits = mobileDigits.replace(/^0+/, '');
             }
+            const initialFullMobileNumber = selectedCountryCode + mobileDigits;
+            const normalizedMobile = normalizePhone(initialFullMobileNumber);
             
             // Initialize Supabase client if needed
             if (!supabaseClient) {
@@ -2448,7 +2396,7 @@
             }
             
             // Check staff_invite table using edge function
-            if (normalizedEmail || normalizedMobile) {
+            if (normalizedMobile) {
                 try {
                     const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
                         method: 'POST',
@@ -2458,7 +2406,6 @@
                             'apikey': window.SUPABASE_ANON_KEY
                         },
                         body: JSON.stringify({
-                            email: normalizedEmail,
                             mobile_no: normalizedMobile || initialFullMobileNumber
                         })
                     });
@@ -2502,76 +2449,7 @@
                 formSection.style.display = 'none';
             }
 
-            // If email is entered, show mobile OTP section to ask for mobile number
-            if (idIsEmail) {
-                const emailValue = extraEmail || identifier;
-                
-                pendingSignupData = {
-                    identifier,
-                    email: normalizedEmail || emailValue,
-                    password,
-                    mobileE164: null,
-                    mobileDisplay: null,
-                    countryCode: selectedCountryCode,
-                    countryIso: selectedCountryCode_iso,
-                    staffInvite: staffInvite, // Include staff invite data
-                    existingUser: existingUser // Include existing user data
-                };
-
-                initializeMobileOtp();
-
-                // Hide OTP verification section if visible
-                if (otpVerificationSection) {
-                    otpVerificationSection.classList.remove('show');
-                    otpVerificationSection.style.display = 'none';
-                }
-
-                // Show mobile OTP section
-                if (mobileOtpSection) {
-                    mobileOtpSection.classList.add('show');
-                    mobileOtpSection.style.display = 'flex';
-                }
-
-                // Clear mobile OTP input
-                const mobileOtpInputEl = document.getElementById('mobileOtpInput');
-                if (mobileOtpInputEl) {
-                    mobileOtpInputEl.value = '';
-                    mobileOtpInputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-
-                stopOtpCountdown();
-
-                if (successMessageOtp) {
-                    successMessageOtp.classList.remove('show');
-                    successMessageOtp.textContent = '';
-                }
-                if (errorMessageOtp) {
-                    errorMessageOtp.classList.remove('show');
-                    errorMessageOtp.textContent = '';
-                }
-
-                if (sendOtpButton) {
-                    sendOtpButton.disabled = true;
-                    sendOtpButton.textContent = 'Send OTP';
-                }
-                if (verifyOtpButton) {
-                    verifyOtpButton.disabled = true;
-                    verifyOtpButton.textContent = 'Verify';
-                }
-                otpInputs.forEach(input => {
-                    if (input) input.value = '';
-                });
-
-                const mobileOtpInputFocus = document.getElementById('mobileOtpInput');
-                if (mobileOtpInputFocus) {
-                    mobileOtpInputFocus.focus();
-                }
-
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                return;
-            }
-
-            // If mobile number is entered, validate and send OTP directly
+            // Validate mobile number and send OTP directly
             if (!validateMobile(identifier, selectedCountryCode_iso)) {
                 if (selectedCountryCode_iso === 'PH') {
                     showError('Please enter a valid 10-digit Philippine mobile number');
@@ -2581,14 +2459,10 @@
                 return;
             }
 
-            let mobileDigits = identifier.replace(/\D/g, '');
-            if (selectedCountryCode_iso === 'PH') {
-                mobileDigits = mobileDigits.replace(/^0+/, '');
-            }
             const finalFullMobileNumber = selectedCountryCode + mobileDigits;
             const displayMobile = formatLocalForDisplay(identifier, selectedCountryCode_iso);
 
-            const emailValue = extraEmail || `phone_${finalFullMobileNumber.replace(/^\+/, '')}@verified.local`;
+            const emailValue = `phone_${finalFullMobileNumber.replace(/^\+/, '')}@verified.local`;
 
             pendingSignupData = {
                 identifier,
@@ -3494,7 +3368,7 @@
                                 // we provide helpful error message
                                 if (errorMsg.toLowerCase().includes('already been registered') || 
                                     errorMsg.toLowerCase().includes('already exists')) {
-                                    throw new Error('Ang email o mobile number mo ay nakaregister na. Kung may staff invite ka, subukan mong mag-login sa halip.');
+                                    throw new Error('Ang mobile number mo ay nakaregister na. Kung may staff invite ka, subukan mong mag-login sa halip.');
                                 }
                             }
                             throw new Error(data.error || data.message || `Signup failed: ${signupResponse.status}`);
