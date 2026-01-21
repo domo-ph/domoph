@@ -3201,8 +3201,20 @@
             const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
             const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : mobile.replace(/\D/g, '');
             
-            // Check for staff invite by mobile using edge function
-            if (pendingSignupData && !pendingSignupData.staffInvite) {
+            // Check if this is an OAuth user (has active session) - skip staff invite check for OAuth users
+            let isOAuthUser = false;
+            if (supabaseClient) {
+                try {
+                    const { data: sessionData } = await supabaseClient.auth.getSession();
+                    isOAuthUser = !!sessionData?.session;
+                } catch (e) {
+                    // If we can't check session, assume not OAuth user
+                    console.warn('Could not check session for OAuth status:', e);
+                }
+            }
+            
+            // Check for staff invite by mobile using edge function (skip for OAuth users)
+            if (!isOAuthUser && pendingSignupData && !pendingSignupData.staffInvite) {
                 try {
                     const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
                         method: 'POST',

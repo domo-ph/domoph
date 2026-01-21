@@ -695,15 +695,40 @@ serve(async (req) => {
                 }
             }
 
-            // Mark staff invite as done
-            const { error: inviteUpdateError } = await supabaseAdmin
-                .from('staff_invite')
-                .update({ status: 'done' })
-                .eq('id', staffInviteFound.id)
+            // Mark staff invite as done and link user_id
+            // FIX: Use defensive update to handle cases where trigger already updated it
+            // This prevents deletion and ensures user_id is always set
+            if (userRow && userRow.id) {
+                // First, check current state of staff_invite
+                const { data: currentInvite, error: checkError } = await supabaseAdmin
+                    .from('staff_invite')
+                    .select('status, user_id')
+                    .eq('id', staffInviteFound.id)
+                    .maybeSingle()
 
-            if (inviteUpdateError) {
-                console.error('Staff invite status update error:', inviteUpdateError)
-                // Don't fail the request - this is just a status update
+                if (checkError) {
+                    console.error('Error checking staff_invite current state:', checkError)
+                }
+
+                // CRITICAL: Always update to ensure user_id is set (prevents CASCADE deletion)
+                // Use defensive SET logic to only change status if needed, but always ensure user_id
+                const { error: inviteUpdateError, data: inviteUpdateResult } = await supabaseAdmin
+                    .from('staff_invite')
+                    .update({ 
+                        status: currentInvite?.status === 'new' ? 'done' : (currentInvite?.status || 'done'),
+                        user_id: userRow.id,  // Always set user_id to prevent deletion
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', staffInviteFound.id)
+
+                if (inviteUpdateError) {
+                    console.error('❌ Staff invite status update error:', inviteUpdateError)
+                    // Don't fail the request - this is just a status update
+                } else {
+                    console.log('✅ Staff invite updated: status=done, user_id=' + userRow.id, inviteUpdateResult)
+                }
+            } else {
+                console.warn('⚠️ Cannot update staff_invite: userRow.id not available')
             }
         }
 

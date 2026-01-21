@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   random_color text;
@@ -22,6 +23,7 @@ DECLARE
   normalized_email TEXT;
   normalized_phone TEXT;
   staff_invite_record RECORD;
+  mobile_invite_record RECORD;
   -- Variables for household creation
   new_household_id UUID;
   new_join_code TEXT;
@@ -123,7 +125,7 @@ BEGIN
       
       SELECT id, household_id, mobile, email, role, status
       INTO staff_invite_record
-      FROM staff_invite
+      FROM public.staff_invite
       WHERE normalize_phone_number(mobile) = normalized_phone
         AND status = 'new'
       ORDER BY created_at DESC
@@ -142,7 +144,7 @@ BEGIN
     IF NOT staff_invite_found AND normalized_email IS NOT NULL THEN
       SELECT id, household_id, mobile, email, role, status
       INTO staff_invite_record
-      FROM staff_invite
+      FROM public.staff_invite
       WHERE LOWER(TRIM(email)) = normalized_email
         AND status = 'new'
       ORDER BY created_at DESC
@@ -153,6 +155,33 @@ BEGIN
         user_role := 'kasambahay';
         RAISE LOG '📋 User role set to kasambahay (found in staff_invite by email: %)', 
           staff_invite_record.id;
+        
+        -- FIX: If mobile becomes available later, prefer mobile match over email match
+        -- Check by mobile if available and different from the email match
+        IF normalized_phone IS NOT NULL AND normalized_phone != '' THEN
+          BEGIN
+            SELECT id, household_id, mobile, email, role, status
+            INTO mobile_invite_record
+            FROM public.staff_invite
+            WHERE normalize_phone_number(mobile) = normalized_phone
+              AND (status = 'new' OR status = 'done')
+            ORDER BY created_at DESC
+            LIMIT 1;
+            
+            IF FOUND AND mobile_invite_record.id != staff_invite_record.id THEN
+              -- Mobile match found and it's different from email match - prefer mobile
+              staff_invite_record := mobile_invite_record;
+              RAISE LOG '📋 Preferring staff_invite by mobile over email: %', staff_invite_record.id;
+            ELSIF FOUND AND mobile_invite_record.id = staff_invite_record.id THEN
+              -- Same record found by both email and mobile - refresh the record to get latest status
+              staff_invite_record := mobile_invite_record;
+              RAISE LOG '📋 Same staff_invite found by both email and mobile: %', staff_invite_record.id;
+            END IF;
+          EXCEPTION WHEN OTHERS THEN
+            -- Ignore errors in mobile check, use email match
+            RAISE LOG '⚠️ Error checking staff_invite by mobile, using email match: %', SQLERRM;
+          END;
+        END IF;
       END IF;
     END IF;
   EXCEPTION
@@ -180,11 +209,13 @@ BEGIN
   IF normalized_email IS NOT NULL THEN
     IF EXISTS (
       SELECT 1 FROM information_schema.columns 
-      WHERE table_name = 'users' AND column_name = 'household'
+      WHERE table_schema = 'public'
+        AND table_name = 'users' 
+        AND column_name = 'household'
     ) THEN
       SELECT id, email, mobile_no, full_name, first_name, last_name, role, household, user_color
       INTO pending_user_record
-      FROM users
+      FROM public.users
       WHERE LOWER(TRIM(email)) = normalized_email
         AND is_pending_signup = TRUE
         AND authid IS NULL
@@ -192,7 +223,7 @@ BEGIN
     ELSE
       SELECT id, email, mobile_no, full_name, first_name, last_name, role, user_color
       INTO pending_user_record
-      FROM users
+      FROM public.users
       WHERE LOWER(TRIM(email)) = normalized_email
         AND is_pending_signup = TRUE
         AND authid IS NULL
@@ -210,11 +241,13 @@ BEGIN
   IF NOT pending_user_found AND normalized_phone IS NOT NULL THEN
     IF EXISTS (
       SELECT 1 FROM information_schema.columns 
-      WHERE table_name = 'users' AND column_name = 'household'
+      WHERE table_schema = 'public'
+        AND table_name = 'users' 
+        AND column_name = 'household'
     ) THEN
       SELECT id, email, mobile_no, full_name, first_name, last_name, role, household, user_color
       INTO pending_user_record
-      FROM users
+      FROM public.users
       WHERE normalize_phone_number(mobile_no) = normalized_phone
         AND is_pending_signup = TRUE
         AND authid IS NULL
@@ -222,7 +255,7 @@ BEGIN
     ELSE
       SELECT id, email, mobile_no, full_name, first_name, last_name, role, user_color
       INTO pending_user_record
-      FROM users
+      FROM public.users
       WHERE normalize_phone_number(mobile_no) = normalized_phone
         AND is_pending_signup = TRUE
         AND authid IS NULL
@@ -248,7 +281,7 @@ BEGIN
       IF random_color IS NULL THEN
         SELECT color
         INTO random_color
-        FROM user_colors
+        FROM public.user_colors
         ORDER BY random()
         LIMIT 1;
         
@@ -550,7 +583,7 @@ BEGIN
   
   -- Get the created user record
   SELECT id, household, role INTO user_record
-  FROM users
+  FROM public.users
   WHERE id = NEW.id;
   
   IF user_record.id IS NULL THEN
@@ -577,20 +610,20 @@ BEGIN
         -- Generate unique join code
         LOOP
           new_join_code := UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 6));
-          EXIT WHEN NOT EXISTS (SELECT 1 FROM households h WHERE h.join_code = new_join_code);
+          EXIT WHEN NOT EXISTS (SELECT 1 FROM public.households h WHERE h.join_code = new_join_code);
         END LOOP;
         
         RAISE LOG '🔑 Generated join code: %', new_join_code;
         
         -- Create household
-        INSERT INTO households (name, owner_id, join_code)
+        INSERT INTO public.households (name, owner_id, join_code)
         VALUES ('My Domo household', user_record.id, new_join_code)
         RETURNING id INTO new_household_id;
         
         RAISE LOG '✅ Household created: %', new_household_id;
         
         -- Update user's household column
-        UPDATE users 
+        UPDATE public.users 
         SET household = new_household_id
         WHERE id = user_record.id;
         
@@ -598,11 +631,11 @@ BEGIN
         
         -- Add user to household_members (check if already exists first)
         IF NOT EXISTS (
-          SELECT 1 FROM household_members 
+          SELECT 1 FROM public.household_members 
           WHERE household_id = new_household_id 
           AND user_id = user_record.id
         ) THEN
-          INSERT INTO household_members (household_id, user_id)
+          INSERT INTO public.household_members (household_id, user_id)
           VALUES (new_household_id, user_record.id);
           RAISE LOG '✅ User added to household_members';
         ELSE
@@ -632,28 +665,39 @@ BEGIN
       
       -- Ensure we have the user record (refresh it to get latest data)
       SELECT id, household, role INTO user_record
-      FROM users
+      FROM public.users
       WHERE id = NEW.id;
       
       IF user_record.id IS NULL THEN
         RAISE WARNING '⚠️ User record not found for staff_invite update';
       ELSE
-        -- Update staff_invite: set status to 'done' and link user_id
-        UPDATE staff_invite
+        -- FIX: Update staff_invite more defensively - handle already-updated records
+        -- Update status to 'done' if still 'new', and always ensure user_id is set
+        -- This prevents deletion and handles cases where edge function updated status first
+        -- CRITICAL: Always update when staff_invite is found to ensure user_id is set
+        -- This prevents CASCADE deletion if user is somehow deleted/recreated
+        UPDATE public.staff_invite
         SET 
-          status = 'done',
-          user_id = user_record.id,
+          status = CASE WHEN status = 'new' THEN 'done' ELSE status END,
+          user_id = COALESCE(user_id, user_record.id),  -- Always ensure user_id is set
           updated_at = NOW()
-        WHERE id = staff_invite_record.id
-          AND status = 'new';  -- Only update if still 'new' (idempotent)
+        WHERE id = staff_invite_record.id;
         
-        RAISE LOG '✅ Staff invite updated: status=done, user_id=%', user_record.id;
+        -- Check if update actually happened
+        IF FOUND THEN
+          RAISE LOG '✅ Staff invite updated: status=done (or already done), user_id=%', 
+            user_record.id;
+        ELSE
+          -- This should never happen if staff_invite_record.id is valid
+          RAISE WARNING '⚠️ Staff invite update found no rows to update (id=%)', 
+            staff_invite_record.id;
+        END IF;
         
         -- If staff_invite has a household_id, assign it to the user
         IF staff_invite_record.household_id IS NOT NULL THEN
           -- Update user's household if not already set
           IF user_record.household IS NULL THEN
-            UPDATE users
+            UPDATE public.users
             SET household = staff_invite_record.household_id
             WHERE id = user_record.id;
             
@@ -665,11 +709,11 @@ BEGIN
           
           -- Ensure household_members entry exists
           IF NOT EXISTS (
-            SELECT 1 FROM household_members 
+            SELECT 1 FROM public.household_members 
             WHERE household_id = staff_invite_record.household_id 
             AND user_id = user_record.id
           ) THEN
-            INSERT INTO household_members (household_id, user_id)
+            INSERT INTO public.household_members (household_id, user_id)
             VALUES (staff_invite_record.household_id, user_record.id);
             RAISE LOG '✅ User added to household_members from staff_invite';
           ELSE
@@ -703,6 +747,9 @@ EXCEPTION
     RETURN NEW;
 END;
 $$;
+
+-- Update function comment
+COMMENT ON FUNCTION public.handle_new_user() IS 'Automatically creates a user profile when a new auth user is created. Enhanced with detailed logging for debugging. Detects existing pending users by email or phone and migrates their data using migrate_pending_user_to_authenticated(). Checks staff_invite table by phone/email to determine role (kasambahay if found, amo otherwise). Assigns a random color from user_colors, extracts display name from metadata, and syncs phone number. Sets primary_auth_method based on phone or provider. Automatically creates household for amo users who don''t have one and have no staff invite. Uses default name "My Domo household" which can be updated later. Robust error handling ensures OAuth and phone auth flows work. Uses SET search_path for proper schema resolution. Fixed mobile_no column error on 2025-01-26 by ensuring proper schema qualification.';
 
 -- Grant execute permission (adjust role as needed)
 -- GRANT EXECUTE ON FUNCTION public.handle_new_user() TO authenticated;
