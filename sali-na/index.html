@@ -3419,6 +3419,7 @@
                                 first_name: truncatedFirstName,
                                 last_name: null,
                                 nickname: truncatedFirstName,
+                                role: 'kasambahay', // OAuth users in this flow should always be kasambahay
                                 // OAuth users don't have passwords - backend should handle this
                                 // Sending placeholder that backend can ignore for OAuth users
                                 password: 'oauth_authenticated_user_no_password_required'
