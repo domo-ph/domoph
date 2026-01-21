@@ -641,6 +641,7 @@ serve(async (req) => {
             }
         } else {
             // Update existing user profile with correct role and mobile_no
+            // If staff invite found, always use its name for nick_name
             const { error: updateError } = await supabaseAdmin
                 .from('users')
                 .update({
@@ -650,7 +651,7 @@ serve(async (req) => {
                     full_name: full_name || existingUser.full_name,
                     first_name: first_name || existingUser.first_name || '',
                     last_name: last_name || existingUser.last_name || '',
-                    nick_name: staffInviteFound?.name || existingUser.nick_name || null,
+                    nick_name: staffInviteFound ? (staffInviteFound.name || null) : (existingUser.nick_name || null),
                     specific_role: staffInviteFound ? staffInviteFound.role : existingUser.specific_role
                 })
                 .eq('authid', authUserId)
