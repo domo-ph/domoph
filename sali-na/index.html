@@ -3567,13 +3567,18 @@
                 }
 
                 // Success: Pre-fill fields and configure form
+                const tokenMobile = data.data?.mobile || null;
+                const hasMobile = !!tokenMobile;
+                
                 inviteTokenData = {
                     token: token,
                     email: data.data?.email || '',
                     name: data.data?.name || data.data?.full_name || '',
                     nickname: data.data?.nickname || '',
                     role: 'kasambahay',
-                    household_id: data.data?.household_id || null
+                    household_id: data.data?.household_id || null,
+                    mobile: tokenMobile,
+                    hasMobile: hasMobile
                 };
 
                 // Pre-fill email and name fields
@@ -3581,21 +3586,61 @@
                 const nameInput = document.getElementById('name');
                 const emailFieldGroup = document.getElementById('emailFieldGroup');
                 const nameFieldGroup = document.getElementById('nameFieldGroup');
+                const mobileInput = document.getElementById('mobile');
 
-                if (emailInput && inviteTokenData.email) {
-                    emailInput.value = inviteTokenData.email;
-                    emailInput.readOnly = true; // Make read-only since it's from invite
-                }
-                if (nameInput && inviteTokenData.name) {
-                    nameInput.value = inviteTokenData.name;
-                }
+                // If token has mobile number, show only mobile + password fields
+                if (hasMobile && tokenMobile) {
+                    // Hide email and name fields
+                    if (emailFieldGroup) {
+                        emailFieldGroup.style.display = 'none';
+                    }
+                    if (nameFieldGroup) {
+                        nameFieldGroup.style.display = 'none';
+                    }
+                    
+                    // Pre-fill mobile field (editable, not readOnly)
+                    if (mobileInput) {
+                        // Extract local number from E.164 format (e.g., +639123456789 -> 9123456789)
+                        // Handle different formats: +63..., 63..., or already local format
+                        let localMobile = tokenMobile.trim();
+                        
+                        // Remove E.164 prefix if present
+                        if (localMobile.startsWith('+63')) {
+                            localMobile = localMobile.substring(3);
+                        } else if (localMobile.startsWith('63') && localMobile.length > 10) {
+                            localMobile = localMobile.substring(2);
+                        }
+                        
+                        // Remove any non-digit characters and leading zeros for PH
+                        const digits = localMobile.replace(/\D/g, '');
+                        const processedDigits = digits.replace(/^0+/, '');
+                        
+                        // Format for display (assuming PH format)
+                        if (processedDigits.length === 10) {
+                            mobileInput.value = formatLocalForDisplay(processedDigits, 'PH');
+                        } else if (digits.length > 0) {
+                            // Fallback: use digits as-is if not 10 digits
+                            mobileInput.value = digits;
+                        }
+                        // Keep it editable (don't set readOnly)
+                    }
+                } else {
+                    // Token has no mobile: show email and name fields (current flow)
+                    if (emailInput && inviteTokenData.email) {
+                        emailInput.value = inviteTokenData.email;
+                        emailInput.readOnly = true; // Make read-only since it's from invite
+                    }
+                    if (nameInput && inviteTokenData.name) {
+                        nameInput.value = inviteTokenData.name;
+                    }
 
-                // Show email and name fields
-                if (emailFieldGroup) {
-                    emailFieldGroup.style.display = 'block';
-                }
-                if (nameFieldGroup) {
-                    nameFieldGroup.style.display = 'block';
+                    // Show email and name fields
+                    if (emailFieldGroup) {
+                        emailFieldGroup.style.display = 'block';
+                    }
+                    if (nameFieldGroup) {
+                        nameFieldGroup.style.display = 'block';
+                    }
                 }
 
                 // Show form section
