@@ -2062,8 +2062,8 @@
                 }
             }
             
-            // Check for token parameter and consume invite token
-            checkAndConsumeInviteToken();
+            // Check for token parameter and validate invite token (does NOT consume)
+            checkAndValidateInviteToken();
         });
 
         // Supabase Edge Function endpoints
@@ -3502,7 +3502,7 @@
         // Tokenized invite handling
         let inviteTokenData = null; // Store token data for signup
 
-        async function checkAndConsumeInviteToken() {
+        async function checkAndValidateInviteToken() {
             const searchParams = new URLSearchParams(window.location.search);
             const token = searchParams.get('t');
             
@@ -3539,8 +3539,8 @@
             }
 
             try {
-                // Call RPC function to consume invite token
-                const { data, error } = await supabaseClient.rpc('consume_invite_token', {
+                // Call RPC function to validate invite token (does NOT consume it)
+                const { data, error } = await supabaseClient.rpc('validate_invite_token', {
                     token_uuid: token
                 });
 
