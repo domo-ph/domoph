@@ -3595,6 +3595,7 @@
                 const mobileInput = document.getElementById('mobile');
 
                 const backToMainButton = document.getElementById('backToMainButton');
+                const dividerSection = document.getElementById('dividerSection');
 
                 // If token has mobile number, show only mobile + password fields
                 if (hasMobile && tokenMobile) {
@@ -3609,6 +3610,11 @@
                     // Hide "Iba pang paraan sa sign-up"
                     if (backToMainButton) {
                         backToMainButton.style.display = 'none';
+                    }
+                    
+                    // Hide "Or" divider
+                    if (dividerSection) {
+                        dividerSection.style.display = 'none';
                     }
 
                     // Pre-fill mobile field (NOT editable)
@@ -3648,6 +3654,9 @@
                     // Token has no mobile: show email and name fields (current flow)
                     if (backToMainButton) {
                         backToMainButton.style.display = '';
+                    }
+                    if (dividerSection) {
+                        dividerSection.style.display = '';
                     }
                     if (emailInput && inviteTokenData.email) {
                         emailInput.value = inviteTokenData.email;
