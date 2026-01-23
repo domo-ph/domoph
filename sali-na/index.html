@@ -3025,10 +3025,16 @@
                 // Hide mobile OTP section and show OTP verification section
                 const mobileOtpSection = document.getElementById('mobileOtpSection');
                 const otpVerificationSection = document.getElementById('otpVerificationSection');
+                const dividerSection = document.getElementById('dividerSection');
                 
                 if (mobileOtpSection) {
                     mobileOtpSection.classList.remove('show');
                     mobileOtpSection.style.display = 'none';
+                }
+                
+                // Hide "Or" divider when showing OTP verification
+                if (dividerSection) {
+                    dividerSection.style.display = 'none';
                 }
                 
                 if (otpVerificationSection) {
@@ -3588,6 +3594,8 @@
                 const nameFieldGroup = document.getElementById('nameFieldGroup');
                 const mobileInput = document.getElementById('mobile');
 
+                const backToMainButton = document.getElementById('backToMainButton');
+
                 // If token has mobile number, show only mobile + password fields
                 if (hasMobile && tokenMobile) {
                     // Hide email and name fields
@@ -3598,7 +3606,12 @@
                         nameFieldGroup.style.display = 'none';
                     }
                     
-                    // Pre-fill mobile field (editable, not readOnly)
+                    // Hide "Iba pang paraan sa sign-up"
+                    if (backToMainButton) {
+                        backToMainButton.style.display = 'none';
+                    }
+
+                    // Pre-fill mobile field (NOT editable)
                     if (mobileInput) {
                         // Extract local number from E.164 format (e.g., +639123456789 -> 9123456789)
                         // Handle different formats: +63..., 63..., or already local format
@@ -3622,16 +3635,33 @@
                             // Fallback: use digits as-is if not 10 digits
                             mobileInput.value = digits;
                         }
-                        // Keep it editable (don't set readOnly)
+                        // Make it read-only when coming from invite token
+                        mobileInput.readOnly = true;
+                    }
+                    
+                    // Ensure password field is always editable
+                    const passwordInput = document.getElementById('password');
+                    if (passwordInput) {
+                        passwordInput.readOnly = false;
                     }
                 } else {
                     // Token has no mobile: show email and name fields (current flow)
+                    if (backToMainButton) {
+                        backToMainButton.style.display = '';
+                    }
                     if (emailInput && inviteTokenData.email) {
                         emailInput.value = inviteTokenData.email;
                         emailInput.readOnly = true; // Make read-only since it's from invite
                     }
                     if (nameInput && inviteTokenData.name) {
                         nameInput.value = inviteTokenData.name;
+                        nameInput.readOnly = true; // Make read-only since it's from invite
+                    }
+                    
+                    // Ensure password field is always editable
+                    const passwordInput = document.getElementById('password');
+                    if (passwordInput) {
+                        passwordInput.readOnly = false;
                     }
 
                     // Show email and name fields
