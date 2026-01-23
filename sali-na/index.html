@@ -3597,14 +3597,20 @@
                 const backToMainButton = document.getElementById('backToMainButton');
                 const dividerSection = document.getElementById('dividerSection');
 
-                // If token has mobile number, show only mobile + password fields
+                // If token has mobile number, show name + mobile + password fields
                 if (hasMobile && tokenMobile) {
-                    // Hide email and name fields
+                    // Hide email field only
                     if (emailFieldGroup) {
                         emailFieldGroup.style.display = 'none';
                     }
+                    
+                    // Show name field (pre-filled from token, read-only)
                     if (nameFieldGroup) {
-                        nameFieldGroup.style.display = 'none';
+                        nameFieldGroup.style.display = 'block';
+                    }
+                    if (nameInput && inviteTokenData.name) {
+                        nameInput.value = inviteTokenData.name;
+                        nameInput.readOnly = true; // Make read-only since it's from invite
                     }
                     
                     // Hide "Iba pang paraan sa sign-up"
@@ -3682,13 +3688,7 @@
                     }
                 }
 
-                // Show form section
-                if (formSection) {
-                    formSection.style.display = 'block';
-                    formSection.classList.add('show');
-                }
-
-                // Auto-show form if not already visible
+                // Hide social auth elements and divider before showing form
                 const logoSection = document.getElementById('logoSection');
                 const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
                 const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
@@ -3696,6 +3696,17 @@
                 if (logoSection) logoSection.style.display = 'flex';
                 if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
                 if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+                
+                // Always hide divider when showing form (especially for token with mobile)
+                if (dividerSection) {
+                    dividerSection.style.display = 'none';
+                }
+
+                // Show form section
+                if (formSection) {
+                    formSection.style.display = 'block';
+                    formSection.classList.add('show');
+                }
 
                 // Scroll to form
                 window.scrollTo({ top: 0, behavior: 'smooth' });
