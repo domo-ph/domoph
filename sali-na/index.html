@@ -464,6 +464,36 @@
             margin-bottom: 0;
         }
 
+        /* Tab switcher: Email signup | Mobile signup */
+        .signup-tab-bar {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+            margin-bottom: var(--spacing-m);
+            width: 100%;
+        }
+        .signup-tab {
+            flex: 1;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-family: inherit;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .signup-tab:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .signup-tab[aria-selected="true"],
+        .signup-tab.active {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+
         .input-label {
             font-size: 10px;
             font-weight: 600;
@@ -1892,19 +1922,14 @@
             <!-- Token Error Message -->
             <div id="tokenErrorMessage" class="error-message" role="alert" style="display: none;"></div>
 
-            <form id="signupForm" onsubmit="handleSignup(event)">
-                <!-- Email Field (shown when token is present) -->
-                <div class="form-group" id="emailFieldGroup" style="display: none;">
-                    <div class="mobile-input-container">
-                        <label for="email" class="mobile-input-inline-label">Email</label>
-                        <div class="mobile-input-row">
-                            <input type="email" id="email" name="email" class="mobile-input-field"
-                                placeholder="email@example.com" autocomplete="email" />
-                        </div>
-                    </div>
-                </div>
+            <!-- Tab switcher: Email signup | Mobile signup (hidden when token has mobile) -->
+            <div id="signupTabBar" class="signup-tab-bar" style="display: none;">
+                <button type="button" class="signup-tab" id="signupTabMobile" data-tab="mobile" aria-selected="true">Mobile signup</button>
+                <button type="button" class="signup-tab" id="signupTabEmail" data-tab="email" aria-selected="false">Email signup</button>
+            </div>
 
-                <!-- Name Field (shown when token is present) -->
+            <form id="signupForm" onsubmit="handleSignup(event)">
+                <!-- Name Field first (shown when Email tab or token present) -->
                 <div class="form-group" id="nameFieldGroup" style="display: none;">
                     <div class="mobile-input-container">
                         <label for="name" class="mobile-input-inline-label">Pangalan</label>
@@ -1915,8 +1940,19 @@
                     </div>
                 </div>
 
-                <!-- Mobile Field -->
-                <div class="form-group">
+                <!-- Email Field (shown when Email tab active or token has email) -->
+                <div class="form-group" id="emailFieldGroup" style="display: none;">
+                    <div class="mobile-input-container">
+                        <label for="email" class="mobile-input-inline-label">Email</label>
+                        <div class="mobile-input-row">
+                            <input type="email" id="email" name="email" class="mobile-input-field"
+                                placeholder="email@example.com" autocomplete="email" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile Field (shown when Mobile tab active or token has mobile) -->
+                <div class="form-group" id="mobileFieldGroup">
                     <div class="mobile-input-container">
                         <label for="mobile" class="mobile-input-inline-label">Mobile No.</label>
                         <div class="mobile-input-row">
@@ -2111,6 +2147,7 @@
         let pendingSignupData = null;
         let currentVerifyingMobileNumber = null; // Store mobile number being verified for resend
         let isProcessingOAuth = false; // Flag to prevent concurrent OAuth processing
+        let signupMode = 'mobile'; // 'email' | 'mobile' - used when tab bar is visible
 
         // Common countries list (matching React Native MobileInput)
         const countries = [
@@ -2211,38 +2248,44 @@
             return v;
         }
 
-        // Update button state based on form validity
-        // Required fields: nickname, mobile number, and password
+        // Update button state based on form validity and active tab (email vs mobile)
         function updateButtonState() {
-            // Check if form is visible and inputs exist
             const formSection = document.getElementById('formSection');
             if (!formSection || !formSection.classList.contains('show')) {
                 return;
             }
 
-            if (!mobileInput || !passwordInput || !submitButton) {
+            if (!passwordInput || !submitButton) {
                 return;
             }
 
-            const identifier = mobileInput.value.trim();
             const password = passwordInput.value.trim();
+            const passwordValid = password && validatePassword(password);
+            let isFormValid = false;
 
-            const identifierValid = validateMobile(identifier, selectedCountryCode_iso);
-
-            const isFormValid =
-                identifier &&
-                password &&
-                validatePassword(password) &&
-                identifierValid;
+            if (signupMode === 'email') {
+                const emailInput = document.getElementById('email');
+                const emailVal = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                isFormValid = !!emailVal && emailRegex.test(emailVal) && passwordValid;
+            } else {
+                const identifier = (mobileInput && mobileInput.value) ? mobileInput.value.trim() : '';
+                const identifierValid = validateMobile(identifier, selectedCountryCode_iso);
+                isFormValid = !!identifier && passwordValid && identifierValid;
+            }
 
             submitButton.disabled = !isFormValid;
         }
 
-        // Add input listeners (only if inputs exist)
+        // Add input listeners so button state updates on any relevant field change
         const formInputs = [mobileInput, passwordInput].filter(input => input !== null);
         formInputs.forEach(input => {
-            input.addEventListener('input', updateButtonState);
+            if (input) input.addEventListener('input', updateButtonState);
         });
+        const emailInputForState = document.getElementById('email');
+        const nameInputForState = document.getElementById('name');
+        if (emailInputForState) emailInputForState.addEventListener('input', updateButtonState);
+        if (nameInputForState) nameInputForState.addEventListener('input', updateButtonState);
         // Masking handlers for the mobile field
         if (mobileInput) {
             mobileInput.addEventListener('blur', () => {
@@ -2353,7 +2396,7 @@
             });
         }
 
-        // Country search handler - initialize after DOM is loaded
+        // Country search handler and tab switcher - initialize after DOM is loaded
         window.addEventListener('DOMContentLoaded', () => {
             const countrySearch = document.getElementById('countrySearch');
             if (countrySearch) {
@@ -2378,6 +2421,15 @@
                         toggleCountryPicker();
                     }
                 });
+            }
+            // Tab switcher: Email signup | Mobile signup
+            const signupTabMobile = document.getElementById('signupTabMobile');
+            const signupTabEmail = document.getElementById('signupTabEmail');
+            if (signupTabMobile) {
+                signupTabMobile.addEventListener('click', () => switchSignupTab('mobile'));
+            }
+            if (signupTabEmail) {
+                signupTabEmail.addEventListener('click', () => switchSignupTab('email'));
             }
         });
 
@@ -2417,22 +2469,115 @@
             successMessage.textContent = '';
         }
 
+        // Tab switcher: show/hide email vs mobile fields
+        function switchSignupTab(tab) {
+            signupMode = tab;
+            const tabMobile = document.getElementById('signupTabMobile');
+            const tabEmail = document.getElementById('signupTabEmail');
+            const emailFieldGroup = document.getElementById('emailFieldGroup');
+            const mobileFieldGroup = document.getElementById('mobileFieldGroup');
+            const mobileInputEl = document.getElementById('mobile');
+            if (tabMobile) {
+                tabMobile.setAttribute('aria-selected', tab === 'mobile' ? 'true' : 'false');
+                tabMobile.classList.toggle('active', tab === 'mobile');
+            }
+            if (tabEmail) {
+                tabEmail.setAttribute('aria-selected', tab === 'email' ? 'true' : 'false');
+                tabEmail.classList.toggle('active', tab === 'email');
+            }
+            if (emailFieldGroup) {
+                emailFieldGroup.style.display = tab === 'email' ? 'block' : 'none';
+            }
+            if (mobileFieldGroup) {
+                mobileFieldGroup.style.display = tab === 'mobile' ? 'block' : 'none';
+            }
+            if (mobileInputEl) {
+                if (tab === 'mobile') {
+                    mobileInputEl.setAttribute('required', '');
+                } else {
+                    mobileInputEl.removeAttribute('required');
+                }
+            }
+            updateButtonState();
+        }
+
         // Handle form submission
         async function handleSignup(event) {
             event.preventDefault();
             hideError();
             hideSuccess();
 
-            const identifier = mobileInput.value.trim();
             const password = passwordInput.value.trim();
-
-            if (!identifier || !password) {
-                showError('Please fill in all required fields (mobile and password)');
+            if (!password) {
+                showError('Please enter your password');
+                return;
+            }
+            if (!validatePassword(password)) {
+                showError('Password must be at least 6 characters long');
                 return;
             }
 
-            if (!validatePassword(password)) {
-                showError('Password must be at least 6 characters long');
+            // Email tab: sign up with email + password + name (no OTP)
+            if (signupMode === 'email') {
+                const emailInput = document.getElementById('email');
+                const nameInput = document.getElementById('name');
+                const emailVal = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+                const nameVal = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+                if (!emailVal) {
+                    showError('Please enter your email');
+                    return;
+                }
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(emailVal)) {
+                    showError('Please enter a valid email address');
+                    return;
+                }
+                const fullName = nameVal || (inviteTokenData && inviteTokenData.name) || 'User';
+                submitButton.disabled = true;
+                submitButton.textContent = 'Sumali na...';
+                try {
+                    const payload = {
+                        email: emailVal,
+                        password: password,
+                        full_name: fullName,
+                        first_name: fullName.split(' ')[0] || fullName,
+                        last_name: fullName.split(' ').slice(1).join(' ') || null
+                    };
+                    if (inviteTokenData && inviteTokenData.token) {
+                        payload.token = inviteTokenData.token;
+                    }
+                    const res = await fetch(SIGNUP_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                            'apikey': window.SUPABASE_ANON_KEY
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showError(data.error || data.message || 'Signup failed. Please try again.');
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Sumali na';
+                        return;
+                    }
+                    if (form) form.reset();
+                    pendingSignupData = null;
+                    showSuccessScreen();
+                } catch (err) {
+                    console.error('Email signup error:', err);
+                    showError('May naging problema. Pakisubukan ulit.');
+                }
+                submitButton.disabled = false;
+                submitButton.textContent = 'Sumali na';
+                return;
+            }
+
+            // Mobile tab: existing mobile + OTP flow
+            const identifier = mobileInput.value.trim();
+            if (!identifier) {
+                showError('Please fill in all required fields (mobile and password)');
                 return;
             }
 
@@ -2609,10 +2754,18 @@
                 logoSection.style.display = 'flex';
             }
 
-            // Show form section
+            // Show form section and tab bar (Email | Mobile)
             if (formSection) {
+                formSection.style.display = 'block';
                 formSection.classList.add('show');
-                // Scroll to top
+                const tokenLoadingState = document.getElementById('tokenLoadingState');
+                const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+                if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+                if (tokenErrorMessage) tokenErrorMessage.style.display = 'none';
+                const tabBar = document.getElementById('signupTabBar');
+                if (tabBar) tabBar.style.display = 'flex';
+                signupMode = 'mobile';
+                switchSignupTab('mobile');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
@@ -2689,6 +2842,7 @@
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        window.showMainContent = showMainContent;
 
         // Initialize mobile OTP functionality
         let mobileOtpInitialized = false;
@@ -3555,9 +3709,13 @@
                 if (error) {
                     console.error('Error consuming invite token:', error);
                     showTokenError(error.message || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.');
-                    // Show form to allow manual signup
+                    // Show form with tab bar to allow manual signup
                     if (formSection) {
                         formSection.style.display = 'block';
+                        const tabBar = document.getElementById('signupTabBar');
+                        if (tabBar) tabBar.style.display = 'flex';
+                        signupMode = 'mobile';
+                        switchSignupTab('mobile');
                     }
                     return;
                 }
@@ -3565,9 +3723,13 @@
                 if (!data || !data.success) {
                     const errorMsg = data?.error || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.';
                     showTokenError(errorMsg);
-                    // Show form to allow manual signup
+                    // Show form with tab bar to allow manual signup
                     if (formSection) {
                         formSection.style.display = 'block';
+                        const tabBar = document.getElementById('signupTabBar');
+                        if (tabBar) tabBar.style.display = 'flex';
+                        signupMode = 'mobile';
+                        switchSignupTab('mobile');
                     }
                     return;
                 }
@@ -3587,6 +3749,16 @@
                     hasMobile: hasMobile
                 };
 
+                // Token-only: invite has no real contact (email/mobile empty or placeholder)
+                function isPlaceholderEmail(e) {
+                    if (!e || !String(e).trim()) return true;
+                    return /@verified\.local$/i.test(e) || /@pending\.domo\.ph$/i.test(e);
+                }
+                const tokenEmailStr = (data.data?.email || '').trim();
+                const tokenMobileStr = (data.data?.mobile || '').trim();
+                const isTokenOnly = !tokenMobileStr && (!tokenEmailStr || isPlaceholderEmail(tokenEmailStr));
+                inviteTokenData.isTokenOnly = isTokenOnly;
+
                 // Pre-fill email and name fields
                 const emailInput = document.getElementById('email');
                 const nameInput = document.getElementById('name');
@@ -3596,31 +3768,35 @@
 
                 const backToMainButton = document.getElementById('backToMainButton');
                 const dividerSection = document.getElementById('dividerSection');
+                const signupTabBar = document.getElementById('signupTabBar');
+                const mobileFieldGroup = document.getElementById('mobileFieldGroup');
 
-                // If token has mobile number, show name + mobile + password fields
+                // If token has mobile number, show name + mobile + password fields (no tabs)
                 if (hasMobile && tokenMobile) {
+                    if (signupTabBar) signupTabBar.style.display = 'none';
+                    if (mobileFieldGroup) mobileFieldGroup.style.setProperty('display', 'block', 'important');
                     // Hide email field only
                     if (emailFieldGroup) {
-                        emailFieldGroup.style.display = 'none';
+                        emailFieldGroup.style.setProperty('display', 'none', 'important');
                     }
                     
                     // Show name field (pre-filled from token, read-only)
                     if (nameFieldGroup) {
-                        nameFieldGroup.style.display = 'block';
+                        nameFieldGroup.style.setProperty('display', 'block', 'important');
                     }
                     if (nameInput && inviteTokenData.name) {
                         nameInput.value = inviteTokenData.name;
                         nameInput.readOnly = true; // Make read-only since it's from invite
                     }
                     
-                    // Hide "Iba pang paraan sa sign-up"
+                    // Show "Iba pang paraan sa sign-up" so user can go back to auth buttons
                     if (backToMainButton) {
-                        backToMainButton.style.display = 'none';
+                        backToMainButton.style.display = '';
                     }
                     
                     // Hide "Or" divider
                     if (dividerSection) {
-                        dividerSection.style.display = 'none';
+                        dividerSection.style.setProperty('display', 'none', 'important');
                     }
 
                     // Pre-fill mobile field (NOT editable)
@@ -3657,34 +3833,44 @@
                         passwordInput.readOnly = false;
                     }
                 } else {
-                    // Token has no mobile: show email and name fields (current flow)
+                    // Token has no mobile: show tab bar and email or mobile fields
+                    const isTokenOnly = inviteTokenData.isTokenOnly;
+                    if (signupTabBar) {
+                        signupTabBar.style.display = 'flex';
+                        signupMode = isTokenOnly ? 'email' : 'mobile';
+                        switchSignupTab(signupMode);
+                    }
+                    // Always show "Iba pang paraan sa sign-up" so user can go back to auth buttons
                     if (backToMainButton) {
                         backToMainButton.style.display = '';
                     }
                     if (dividerSection) {
-                        dividerSection.style.display = '';
+                        dividerSection.style.display = isTokenOnly ? 'none' : '';
                     }
-                    if (emailInput && inviteTokenData.email) {
-                        emailInput.value = inviteTokenData.email;
-                        emailInput.readOnly = true; // Make read-only since it's from invite
+                    if (emailInput) {
+                        emailInput.value = inviteTokenData.email || '';
+                        emailInput.readOnly = !isTokenOnly; // Editable when token-only so user can enter their contact
                     }
-                    if (nameInput && inviteTokenData.name) {
-                        nameInput.value = inviteTokenData.name;
-                        nameInput.readOnly = true; // Make read-only since it's from invite
+                    if (nameInput) {
+                        nameInput.value = inviteTokenData.name || '';
+                        nameInput.readOnly = true; // Keep readOnly (pre-fill from token) per invite flow
                     }
-                    
+
                     // Ensure password field is always editable
                     const passwordInput = document.getElementById('password');
                     if (passwordInput) {
                         passwordInput.readOnly = false;
                     }
 
-                    // Show email and name fields
+                    // Show email and name field groups (visibility of email vs mobile is handled by switchSignupTab)
                     if (emailFieldGroup) {
-                        emailFieldGroup.style.display = 'block';
+                        emailFieldGroup.style.display = signupMode === 'email' ? 'block' : 'none';
                     }
                     if (nameFieldGroup) {
                         nameFieldGroup.style.display = 'block';
+                    }
+                    if (mobileFieldGroup) {
+                        mobileFieldGroup.style.display = signupMode === 'mobile' ? 'block' : 'none';
                     }
                 }
 
@@ -3974,13 +4160,14 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Show success screen after OTP verification (same pattern as showSocialAuthInstructions)
+        // Show success screen after OTP verification or email signup (same pattern as showSocialAuthInstructions)
         function showSuccessScreen() {
             // Hide all sections
             const logoSection = document.getElementById('logoSection');
             const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
             const dividerSection = document.getElementById('dividerSection');
             const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const formSection = document.getElementById('formSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
             const otpVerificationSection = document.getElementById('otpVerificationSection');
             const socialAuthSection = document.getElementById('socialAuthSection');
@@ -3991,6 +4178,10 @@
             if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (formSection) {
+                formSection.classList.remove('show');
+                formSection.style.display = 'none';
+            }
             if (mobileOtpSection) {
                 mobileOtpSection.classList.remove('show');
                 mobileOtpSection.style.display = 'none';
