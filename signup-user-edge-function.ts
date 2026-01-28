@@ -76,6 +76,14 @@ serve(async (req) => {
         const normalizedEmail = normalizeEmail(email)
         const normalizedMobile = normalizePhone(mobile_no)
 
+        // Detect OAuth-authenticated flow:
+        // - Request comes with a user session JWT in Authorization header (from OAuth sign-in)
+        // - Frontend sends a placeholder password
+        const jwt = authHeader.replace(/^Bearer\s+/i, '').trim()
+        const isOAuthPlaceholderPassword =
+            typeof password === 'string' && password === 'oauth_authenticated_user_no_password_required'
+        const isOAuthFlow = !!jwt && (isOAuthPlaceholderPassword || !!requestBody.user_id)
+
         // --- Link existing user (migrate to kas): "Ako 'yan!" flow ---
         if (link_existing_user && inviteToken && (normalizedEmail || normalizedMobile)) {
             try {
@@ -179,23 +187,27 @@ serve(async (req) => {
             }
         }
 
-        // Validate required fields: password and full_name always; either mobile_no or email required
-        if (!password || !full_name) {
-            return new Response(
-                JSON.stringify({ error: 'Missing required fields: password and full_name are required' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-        }
-        if (!normalizedMobile && !normalizedEmail) {
-            return new Response(
-                JSON.stringify({ error: 'Either mobile number or email is required' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
+        // For OAuth flow, we upsert profile for the already-authenticated user.
+        // For password signup, we create a new auth user.
+        if (!isOAuthFlow) {
+            // Validate required fields: password and full_name always; either mobile_no or email required
+            if (!password || !full_name) {
+                return new Response(
+                    JSON.stringify({ error: 'Missing required fields: password and full_name are required' }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+            if (!normalizedMobile && !normalizedEmail) {
+                return new Response(
+                    JSON.stringify({ error: 'Either mobile number or email is required' }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
         }
 
         // Check for staff invite - prioritize token-based lookup, then fallback to mobile/email matching
         let userRole = 'amo' // Default role
-        let staffInviteFound = null
+        let staffInviteFound: any = null
 
         // Priority 1: Check for invite_token/token parameter (tokenized invite URL)
         // Use validate_invite_token (read-only) so token stays valid for "Ako 'yan!" (link_existing_user) if createUser fails
@@ -306,12 +318,150 @@ serve(async (req) => {
             nickname: inviteNickname // Set nickname from invite if available
         }
 
-        // Create auth user using Supabase Admin API
+        // OAuth flow: user already exists in auth; fetch user from JWT and upsert profile
+        if (isOAuthFlow) {
+            const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.getUser(jwt)
+            if (authUserError || !authUserData?.user) {
+                console.error('[SIGNUP] OAuth getUser error:', authUserError)
+                return new Response(
+                    JSON.stringify({ error: authUserError?.message || 'Invalid auth session' }),
+                    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            const authUser = authUserData.user
+            const oauthEmail = normalizedEmail || normalizeEmail(authUser.email) || null
+            const oauthFullName =
+                (inviteName || full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || oauthEmail || 'User')
+
+            if (!oauthEmail && !normalizedMobile) {
+                return new Response(
+                    JSON.stringify({ error: 'Either mobile number or email is required' }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            // Upsert user profile row based on authid
+            const { data: existingUser, error: fetchError } = await supabaseAdmin
+                .from('users')
+                .select('*')
+                .eq('authid', authUser.id)
+                .maybeSingle()
+
+            if (fetchError) {
+                console.error('[SIGNUP] OAuth fetch users error:', fetchError)
+            }
+
+            const profilePayload = {
+                authid: authUser.id,
+                email: oauthEmail,
+                full_name: oauthFullName,
+                first_name: userMetadata.first_name || oauthFullName.split(' ')[0] || '',
+                last_name: userMetadata.last_name || oauthFullName.split(' ').slice(1).join(' ') || '',
+                nick_name: inviteNickname || userMetadata.nickname || '',
+                mobile_no: normalizedMobile || mobile_no || authUser.user_metadata?.mobile_no || null,
+                role: userRole,
+                onboarded: existingUser?.onboarded ?? false,
+                onboarding_page: existingUser?.onboarding_page ?? null,
+            }
+
+            if (!existingUser) {
+                const { error: insertError } = await supabaseAdmin.from('users').insert(profilePayload)
+                if (insertError) {
+                    console.error('[SIGNUP] OAuth user profile insert error:', insertError)
+                    return new Response(
+                        JSON.stringify({ error: insertError.message }),
+                        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+            } else {
+                const { error: updateError } = await supabaseAdmin
+                    .from('users')
+                    .update({
+                        email: profilePayload.email || existingUser.email,
+                        full_name: profilePayload.full_name || existingUser.full_name,
+                        first_name: profilePayload.first_name || existingUser.first_name,
+                        last_name: profilePayload.last_name || existingUser.last_name,
+                        nick_name: profilePayload.nick_name || existingUser.nick_name,
+                        mobile_no: profilePayload.mobile_no || existingUser.mobile_no,
+                        role: userRole,
+                    })
+                    .eq('authid', authUser.id)
+                if (updateError) {
+                    console.error('[SIGNUP] OAuth user profile update error:', updateError)
+                }
+            }
+
+            // If staff invite was found, assign household, set specific_role, ensure membership, and mark invite as done
+            if (staffInviteFound) {
+                const { data: userRow, error: userFetchError } = await supabaseAdmin
+                    .from('users')
+                    .select('id, household')
+                    .eq('authid', authUser.id)
+                    .maybeSingle()
+
+                if (userFetchError || !userRow) {
+                    console.error('Failed to fetch users row for household assignment:', userFetchError)
+                } else {
+                    const householdId = staffInviteFound.household_id
+                    const inviteNickname = staffInviteFound.name || full_name || ''
+                    const { error: userUpdateHouseholdError } = await supabaseAdmin
+                        .from('users')
+                        .update({
+                            household: householdId,
+                            specific_role: staffInviteFound.role || null,
+                            nick_name: inviteNickname,
+                            role: 'kasambahay',
+                        })
+                        .eq('id', userRow.id)
+
+                    if (userUpdateHouseholdError) {
+                        console.error('Failed to update users.household/specific_role:', userUpdateHouseholdError)
+                    } else {
+                        const { data: existingMember, error: memberCheckError } = await supabaseAdmin
+                            .from('household_members')
+                            .select('id')
+                            .eq('household_id', householdId)
+                            .eq('user_id', userRow.id)
+                            .maybeSingle()
+
+                        if (!existingMember && !memberCheckError) {
+                            const { error: insertMemberError } = await supabaseAdmin
+                                .from('household_members')
+                                .insert({ household_id: householdId, user_id: userRow.id })
+                            if (insertMemberError) {
+                                console.error('Failed to insert household_members row:', insertMemberError)
+                            }
+                        }
+                    }
+                }
+
+                if (staffInviteFound.status !== 'done') {
+                    const { error: inviteUpdateError } = await supabaseAdmin
+                        .from('staff_invite')
+                        .update({ status: 'done' })
+                        .eq('id', staffInviteFound.id)
+                    if (inviteUpdateError) console.error('Staff invite status update error:', inviteUpdateError)
+                }
+            }
+
+            return new Response(
+                JSON.stringify({
+                    success: true,
+                    user: authUser,
+                    role: userRole,
+                    message: 'OAuth account processed successfully.',
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // Password signup flow: Create auth user using Supabase Admin API
         const authEmail = normalizedEmail || (normalizedMobile ? `${String(normalizedMobile).replace(/\D/g, '')}@domo.ph` : 'noreply@domo.ph')
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email: authEmail, // Use provided email, or mobile-based, or fallback when email-only
+            email: authEmail,
             password: password,
-            email_confirm: true, // Auto-confirm email
+            email_confirm: true,
             user_metadata: userMetadata
         })
 

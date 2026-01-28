@@ -4577,6 +4577,13 @@
                     if (supabaseClient) {
                         const { data: sessionData } = await supabaseClient.auth.getSession();
                         if (sessionData?.session) {
+                            // Ensure we called signup-user for this OAuth session before showing success
+                            const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
+                            if (!signupCompleted) {
+                                console.log('OAuth session exists but signup-user not completed yet; calling signup-user...');
+                                await finalizeOAuthSignup(sessionData.session);
+                                sessionStorage.setItem('oauthSignupCompleted', '1');
+                            }
                             console.log('Found active session, showing success screen...');
                             showSuccessScreen();
                         }
@@ -4663,6 +4670,11 @@
 
                 // If we have a session and haven't processed it yet, show success
                 if (session) {
+                    // Call signup-user to upsert profile/role/invite before success
+                    console.log('Calling signup-user for OAuth session...');
+                    await finalizeOAuthSignup(session);
+                    sessionStorage.setItem('oauthSignupCompleted', '1');
+
                     // Mark as processed immediately to prevent duplicate processing
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
@@ -4687,6 +4699,67 @@
                 // Clear processing flag after completion
                 isProcessingOAuth = false;
             }
+        }
+
+        async function finalizeOAuthSignup(session) {
+            if (!session?.access_token) throw new Error('Missing OAuth session token');
+            const user = session.user;
+            const userMetadata = user?.user_metadata || {};
+
+            const fullName =
+                (inviteTokenData && inviteTokenData.name) ||
+                userMetadata.full_name ||
+                userMetadata.name ||
+                `${userMetadata.first_name || userMetadata.given_name || userMetadata.firstName || ''} ${userMetadata.last_name || userMetadata.family_name || userMetadata.lastName || ''}`.trim() ||
+                user?.email?.split('@')[0] ||
+                'User';
+
+            const firstName =
+                (inviteTokenData && inviteTokenData.name ? inviteTokenData.name.split(' ')[0] : null) ||
+                userMetadata.first_name ||
+                userMetadata.given_name ||
+                userMetadata.firstName ||
+                fullName.split(' ')[0] ||
+                'User';
+
+            const lastName =
+                userMetadata.last_name ||
+                userMetadata.family_name ||
+                userMetadata.lastName ||
+                fullName.split(' ').slice(1).join(' ') ||
+                null;
+
+            const nickname = (firstName || 'User').slice(0, 20);
+
+            const oauthPayload = {
+                user_id: user?.id,
+                email: (inviteTokenData && inviteTokenData.email) || user?.email,
+                mobile_no: null,
+                full_name: (inviteTokenData && inviteTokenData.name) || fullName,
+                first_name: firstName,
+                last_name: lastName,
+                nickname,
+                role: (inviteTokenData && inviteTokenData.role) || null,
+                password: 'oauth_authenticated_user_no_password_required',
+            };
+
+            if (inviteTokenData && inviteTokenData.token) oauthPayload.token = inviteTokenData.token;
+
+            const res = await fetch(SIGNUP_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': window.SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify(oauthPayload),
+            });
+
+            if (res.ok || res.status === 409) return;
+
+            const data = await res.json().catch(() => ({}));
+            const errMsg = data.error || data.message || `Signup failed: ${res.status}`;
+            throw new Error(errMsg);
         }
 
         // Set up auth state change listener as backup
