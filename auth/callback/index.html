@@ -3,14 +3,28 @@
 <head>
     <title>Redirecting...</title>
     <script type="text/javascript">
-        function getFragmentParams() {
-            const fragment = window.location.hash.substring(1);
-            const params = new URLSearchParams(fragment);
-            return params;
+        function getHashString() {
+            return window.location.hash ? window.location.hash.substring(1) : '';
+        }
+
+        function getSearchParams() {
+            return new URLSearchParams(window.location.search || '');
+        }
+
+        function redirectToWeb() {
+            // Web OAuth should NOT attempt to launch the app scheme.
+            // Redirect back to the web signup page and preserve tokens in the hash.
+            const hash = getHashString();
+            const searchParams = getSearchParams();
+            const inviteToken = searchParams.get('t');
+            const inviteQuery = inviteToken ? `?t=${encodeURIComponent(inviteToken)}` : '';
+            const webUrl = `${window.location.origin}/sali-na/${inviteQuery}${hash ? `#${hash}` : ''}`;
+            window.location.replace(webUrl);
         }
 
         function redirectToApp() {
-            const params = getFragmentParams();
+            const hash = getHashString();
+            const params = new URLSearchParams(hash);
             const id_token = params.get('id_token');
             const code = params.get('code');
             const state = params.get('state');
@@ -23,22 +37,34 @@
                 appRedirectUrl += `?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(error_description || 'Unknown error')}`;
             } else if (id_token) {
                 appRedirectUrl += `?id_token=${encodeURIComponent(id_token)}&code=${encodeURIComponent(code || '')}&state=${encodeURIComponent(state || '')}`;
+            } else if (hash) {
+                // Fallback: keep the full hash for app-side parsing
+                appRedirectUrl += `#${hash}`;
             } else {
-                appRedirectUrl += `?error=${encodeURIComponent('no_token_or_code')}&error_description=${encodeURIComponent('No id_token or code received from Apple')}`;
+                appRedirectUrl += `?error=${encodeURIComponent('no_token_or_code')}&error_description=${encodeURIComponent('No id_token or code received')}`;
             }
 
             window.location.replace(appRedirectUrl);
         }
 
-        // Call the redirect function when the page loads
-        window.onload = redirectToApp;
+        // Default to WEB redirect to avoid "scheme has no registered handler" in browsers.
+        // If you explicitly want to deep-link into the app, add `?toApp=1` to this callback URL.
+        window.onload = function () {
+            const params = getSearchParams();
+            const toApp = params.get('toApp');
+            if (toApp === '1') redirectToApp();
+            else redirectToWeb();
+        };
     </script>
 </head>
 <body>
     <p>If you are not redirected automatically, <a id="manualRedirect" href="#">click here</a>.</p>
     <script type="text/javascript">
         document.getElementById('manualRedirect').onclick = function() {
-            redirectToApp();
+            // Match the same behavior as onload
+            const params = new URLSearchParams(window.location.search || '');
+            if (params.get('toApp') === '1') redirectToApp();
+            else redirectToWeb();
             return false;
         };
     </script>
