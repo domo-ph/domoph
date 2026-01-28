@@ -3834,8 +3834,10 @@
 
         function persistInviteTokenDataForOAuth() {
             try {
+                console.log('[INVITE][OAuth] Persisting inviteTokenData before redirect:', inviteTokenData);
                 if (inviteTokenData?.token) {
                     sessionStorage.setItem(INVITE_TOKEN_SESSION_KEY, JSON.stringify(inviteTokenData));
+                    console.log('[INVITE][OAuth] Stored full inviteTokenData in sessionStorage');
                     return;
                 }
 
@@ -3844,6 +3846,9 @@
                 const rawToken = searchParams.get('t');
                 if (rawToken) {
                     sessionStorage.setItem(INVITE_TOKEN_SESSION_KEY, JSON.stringify({ token: rawToken }));
+                    console.log('[INVITE][OAuth] Stored raw token from URL in sessionStorage:', rawToken);
+                } else {
+                    console.log('[INVITE][OAuth] No invite token found to persist');
                 }
             } catch (e) {
                 console.warn('Failed to persist invite token for OAuth:', e);
@@ -3852,11 +3857,21 @@
 
         function restoreInviteTokenDataAfterOAuth() {
             try {
-                if (inviteTokenData?.token) return;
+                if (inviteTokenData?.token) {
+                    console.log('[INVITE][OAuth] inviteTokenData already set, skipping restore:', inviteTokenData);
+                    return;
+                }
                 const raw = sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY);
-                if (!raw) return;
+                if (!raw) {
+                    console.log('[INVITE][OAuth] No invite token found in sessionStorage to restore');
+                    return;
+                }
                 const parsed = JSON.parse(raw);
-                if (parsed?.token) inviteTokenData = parsed;
+                console.log('[INVITE][OAuth] Restoring inviteTokenData from sessionStorage raw value:', parsed);
+                if (parsed?.token) {
+                    inviteTokenData = parsed;
+                    console.log('[INVITE][OAuth] inviteTokenData restored after OAuth:', inviteTokenData);
+                }
             } catch (e) {
                 console.warn('Failed to restore invite token after OAuth:', e);
             }
@@ -4795,7 +4810,15 @@
                 password: 'oauth_authenticated_user_no_password_required',
             };
 
-            if (inviteTokenData && inviteTokenData.token) oauthPayload.token = inviteTokenData.token;
+            if (inviteTokenData && inviteTokenData.token) {
+                oauthPayload.token = inviteTokenData.token;
+            }
+
+            console.log('[INVITE][OAuth] finalizeOAuthSignup payload about to be sent:', {
+                hasInviteTokenData: !!inviteTokenData,
+                inviteTokenData,
+                oauthPayload
+            });
 
             const res = await fetch(SIGNUP_ENDPOINT, {
                 method: 'POST',
