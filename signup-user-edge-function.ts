@@ -66,7 +66,7 @@ serve(async (req) => {
         const requestBody = await req.json()
         console.log('[SIGNUP] Full request body received:', JSON.stringify(requestBody, null, 2))
 
-        const { email, password, mobile_no, full_name, first_name, last_name, invite_token, token } = requestBody
+        const { email, password, mobile_no, full_name, first_name, last_name, invite_token, token, link_existing_user } = requestBody
 
         // Support both 'invite_token' and 'token' parameter names (token is what web page sends)
         const inviteToken = invite_token || token
@@ -75,6 +75,109 @@ serve(async (req) => {
         // Normalize inputs first (needed for validation)
         const normalizedEmail = normalizeEmail(email)
         const normalizedMobile = normalizePhone(mobile_no)
+
+        // --- Link existing user (migrate to kas): "Ako 'yan!" flow ---
+        if (link_existing_user && inviteToken && (normalizedEmail || normalizedMobile)) {
+            try {
+                const rpcResponse = await supabaseAdmin.rpc('consume_invite_token', { token_uuid: inviteToken })
+                const tokenResult = rpcResponse.data
+                const tokenError = rpcResponse.error
+                if (tokenError || !tokenResult?.success || !tokenResult?.data) {
+                    return new Response(
+                        JSON.stringify({ error: tokenResult?.error || tokenError?.message || 'Invalid or expired invite' }),
+                        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+                const inv = tokenResult.data
+                const householdId = inv.household_id
+                const inviteRole = inv.role || null
+                const inviteName = inv.name || inv.nickname || ''
+
+                const q = supabaseAdmin.from('users').select('id, authid, household, role')
+                const { data: existingUserRow, error: userFindErr } = normalizedEmail
+                    ? await q.eq('email', normalizedEmail).maybeSingle()
+                    : await q.eq('mobile_no', normalizedMobile).maybeSingle()
+
+                if (userFindErr || !existingUserRow) {
+                    return new Response(
+                        JSON.stringify({ error: 'Existing user not found for this email or mobile number' }),
+                        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+
+                const { error: updErr } = await supabaseAdmin
+                    .from('users')
+                    .update({
+                        household: householdId,
+                        specific_role: inviteRole,
+                        nick_name: inviteName,
+                        role: 'kasambahay'
+                    })
+                    .eq('id', existingUserRow.id)
+
+                if (updErr) {
+                    console.error('[SIGNUP] link_existing_user update error:', updErr)
+                    return new Response(
+                        JSON.stringify({ error: updErr.message }),
+                        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+
+                const { data: existingMember } = await supabaseAdmin
+                    .from('household_members')
+                    .select('id')
+                    .eq('household_id', householdId)
+                    .eq('user_id', existingUserRow.id)
+                    .maybeSingle()
+
+                if (!existingMember) {
+                    await supabaseAdmin.from('household_members').insert({
+                        household_id: householdId,
+                        user_id: existingUserRow.id
+                    })
+                }
+
+                // Token-based reconciliation (link flow):
+                // If the invite had a placeholder/pending user_id, migrate its data to the existing user and delete it.
+                const pendingUserId = inv.user_id ?? null
+                if (pendingUserId) {
+                    try {
+                        console.log('[SIGNUP] link_existing_user: migrate_pending_user_to_authenticated(', pendingUserId, ',', existingUserRow.id, ')')
+                        const { data: migrationResult, error: migrationError } = await supabaseAdmin.rpc('migrate_pending_user_to_authenticated', {
+                            old_user_id: pendingUserId,
+                            new_user_id: existingUserRow.id,
+                        })
+                        if (migrationError) {
+                            console.error('[SIGNUP] link_existing_user: migrate_pending_user_to_authenticated error:', migrationError)
+                        } else if (migrationResult?.success !== false) {
+                            const { error: deleteError } = await supabaseAdmin.from('users').delete().eq('id', pendingUserId)
+                            if (deleteError) {
+                                console.warn('[SIGNUP] link_existing_user: Failed to delete placeholder user after migration:', deleteError)
+                            } else {
+                                console.log('[SIGNUP] link_existing_user: Placeholder user deleted after successful migration:', pendingUserId)
+                            }
+                        }
+                    } catch (reconcileErr) {
+                        console.error('[SIGNUP] link_existing_user: Reconciliation error (non-fatal):', reconcileErr)
+                    }
+                }
+
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        message: 'Account linked successfully. Welcome, kasambahay!',
+                        user_id: existingUserRow.id
+                    }),
+                    { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            } catch (linkErr) {
+                console.error('[SIGNUP] link_existing_user error:', linkErr)
+                return new Response(
+                    JSON.stringify({ error: linkErr?.message || 'Failed to link account' }),
+                    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+        }
 
         // Validate required fields: password and full_name always; either mobile_no or email required
         if (!password || !full_name) {
@@ -95,12 +198,13 @@ serve(async (req) => {
         let staffInviteFound = null
 
         // Priority 1: Check for invite_token/token parameter (tokenized invite URL)
+        // Use validate_invite_token (read-only) so token stays valid for "Ako 'yan!" (link_existing_user) if createUser fails
         if (inviteToken) {
             try {
-                console.log('[SIGNUP] Checking invite token:', inviteToken)
+                console.log('[SIGNUP] Validating invite token (no consume):', inviteToken)
                 console.log('[SIGNUP] Request body received:', { email, mobile_no, full_name, invite_token, token, inviteToken })
 
-                const rpcResponse = await supabaseAdmin.rpc('consume_invite_token', {
+                const rpcResponse = await supabaseAdmin.rpc('validate_invite_token', {
                     token_uuid: inviteToken
                 })
 
@@ -123,16 +227,15 @@ serve(async (req) => {
                     })
 
                     if (tokenResult.success && tokenResult.data) {
-                        // Token is valid and consumed - use invite data (include user_id for placeholder reconciliation)
-                        // Note: RPC already marked invite as 'done', so we just use the data
+                        // Token is valid (validate_invite_token does NOT consume) - use invite data
                         staffInviteFound = {
-                            id: tokenResult.data.id, // BIGINT id from database (not the token UUID)
+                            id: tokenResult.data.id,
                             email: tokenResult.data.email,
                             name: tokenResult.data.name || tokenResult.data.nickname,
                             role: tokenResult.data.role,
                             household_id: tokenResult.data.household_id,
-                            status: 'done', // Already marked as done by RPC
-                            user_id: tokenResult.data.user_id ?? null, // Pending user UUID for migrate_pending_user_to_authenticated
+                            status: tokenResult.data.status || 'new', // Validate returns current status; we mark 'done' after createUser success
+                            user_id: tokenResult.data.user_id ?? null,
                         }
                         userRole = 'kasambahay' // Set role to kasambahay for staff invites
                         console.log('[SIGNUP] ✅ Invite token validated successfully. Setting role to kasambahay. Invite data:', JSON.stringify(staffInviteFound, null, 2))
@@ -147,7 +250,7 @@ serve(async (req) => {
                     // Fall through to mobile/email matching as fallback
                 }
             } catch (tokenErr) {
-                console.error('[SIGNUP] ❌ Exception calling consume_invite_token RPC:', tokenErr)
+                console.error('[SIGNUP] ❌ Exception calling validate_invite_token RPC:', tokenErr)
                 // Fall through to mobile/email matching as fallback
             }
         } else {
@@ -214,10 +317,13 @@ serve(async (req) => {
 
         if (authError) {
             console.error('Auth user creation error:', authError)
-            return new Response(
-                JSON.stringify({ error: authError.message }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
+            const msg = (authError.message || '').toLowerCase()
+            const isAlreadyRegistered = /already|registered|exists|duplicate/i.test(msg)
+            const body = isAlreadyRegistered
+                ? { error: 'Email or mobile number already registered. Please log in instead.' }
+                : { error: authError.message }
+            const status = isAlreadyRegistered ? 409 : 400
+            return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         if (!authData.user) {

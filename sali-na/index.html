@@ -832,6 +832,92 @@
             width: 100%;
         }
 
+        /* Already Registered Section ("Kamusta? Ikaw ba 'to?") */
+        .already-registered-section {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            padding: var(--spacing-m);
+            min-height: calc(100vh - 56px);
+            justify-content: center;
+            align-items: center;
+        }
+        .already-registered-section.show {
+            display: flex;
+        }
+        .already-registered-modal-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-xl);
+            width: 100%;
+            max-width: 480px;
+            padding: var(--spacing-xl) 0;
+        }
+        .already-registered-illustration-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+        .already-registered-illustration {
+            width: 288px;
+            height: 288px;
+            object-fit: contain;
+        }
+        .already-registered-text-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-m);
+            width: 100%;
+            text-align: center;
+        }
+        .already-registered-title {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 28px;
+            color: var(--surface-subtle);
+            margin: 0;
+        }
+        .already-registered-description {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 20px;
+            color: var(--surface-subtle);
+            margin: 0;
+        }
+        .already-registered-highlight {
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 600;
+        }
+        .already-registered-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-m);
+            width: 100%;
+        }
+        .btn-ako-yan {
+            width: 100%;
+            max-width: 320px;
+        }
+        .btn-hindi-ako {
+            background: none;
+            border: none;
+            color: #9FDAEF;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            padding: 0;
+            font-family: inherit;
+        }
+        .btn-hindi-ako:hover {
+            color: #9FDAEF;
+            text-decoration: none;
+        }
+
         .app-store-buttons {
             display: flex;
             flex-direction: column;
@@ -1924,8 +2010,8 @@
 
             <!-- Tab switcher: Email signup | Mobile signup (hidden when token has mobile) -->
             <div id="signupTabBar" class="signup-tab-bar" style="display: none;">
-                <button type="button" class="signup-tab" id="signupTabMobile" data-tab="mobile" aria-selected="true">Mobile signup</button>
-                <button type="button" class="signup-tab" id="signupTabEmail" data-tab="email" aria-selected="false">Email signup</button>
+                <button type="button" class="signup-tab" id="signupTabMobile" data-tab="mobile" aria-selected="true">MOBILE SIGNUP</button>
+                <button type="button" class="signup-tab" id="signupTabEmail" data-tab="email" aria-selected="false">EMAIL SIGNUP/button>
             </div>
 
             <form id="signupForm" onsubmit="handleSignup(event)">
@@ -2061,6 +2147,26 @@
                 </div>
             </div>
         </div>
+
+        <!-- Already Registered Section: "Kamusta? Ikaw ba 'to?" (Initially Hidden) -->
+        <div id="alreadyRegisteredSection" class="already-registered-section">
+            <div class="already-registered-modal-body">
+                <div class="already-registered-illustration-container">
+                    <img src="questions-rafiki.svg" alt="Questions illustration" class="already-registered-illustration" />
+                </div>
+                <div class="already-registered-text-container">
+                    <h2 class="already-registered-title">Kamusta?</h2>
+                    <p class="already-registered-description" id="alreadyRegisteredMessage">
+                        Napansin namin na naka-register na ang <span id="alreadyRegisteredContact" class="already-registered-highlight"></span>. Ikaw ba 'to?
+                    </p>
+                </div>
+                <div class="already-registered-actions">
+                    <div id="alreadyRegisteredError" class="error-message" role="alert" style="display: none;"></div>
+                    <button type="button" class="btn-primary btn-ako-yan" id="akoYanButton">Ako 'yan!</button>
+                    <button type="button" class="btn-hindi-ako" id="hindiAkoButton">Hindi ako</button>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Country Picker Modal -->
@@ -2145,6 +2251,7 @@
         let selectedCountryFlag = '🇵🇭';
         let selectedCountryCode_iso = 'PH';
         let pendingSignupData = null;
+        let pendingAlreadyRegistered = null; // { emailOrMobile, isEmail, token, password?, fullName?, mobileE164? }
         let currentVerifyingMobileNumber = null; // Store mobile number being verified for resend
         let isProcessingOAuth = false; // Flag to prevent concurrent OAuth processing
         let signupMode = 'mobile'; // 'email' | 'mobile' - used when tab bar is visible
@@ -2431,6 +2538,11 @@
             if (signupTabEmail) {
                 signupTabEmail.addEventListener('click', () => switchSignupTab('email'));
             }
+            // Already registered: Ako 'yan! / Hindi ako
+            const akoYanBtn = document.getElementById('akoYanButton');
+            const hindiAkoBtn = document.getElementById('hindiAkoButton');
+            if (akoYanBtn) akoYanBtn.addEventListener('click', handleAkoYan);
+            if (hindiAkoBtn) hindiAkoBtn.addEventListener('click', hideAlreadyRegisteredScreen);
         });
 
         // Show error message
@@ -2557,7 +2669,25 @@
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
-                        showError(data.error || data.message || 'Signup failed. Please try again.');
+                        const errMsg = data.error || data.message || '';
+                        const isAlreadyRegistered = res.status === 409 || /already|registered|exists/i.test(String(errMsg));
+                        if (isAlreadyRegistered && (inviteTokenData && inviteTokenData.token)) {
+                            pendingAlreadyRegistered = {
+                                emailOrMobile: emailVal,
+                                isEmail: true,
+                                token: inviteTokenData.token,
+                                password,
+                                fullName
+                            };
+                            showAlreadyRegisteredScreen(emailVal, true);
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'Sumali na';
+                            return;
+                        }
+                        const message = isAlreadyRegistered
+                            ? 'Ang email mo ay nakaregister na. Subukan mong mag-login sa halip.'
+                            : (errMsg || 'Signup failed. Please try again.');
+                        showError(message);
                         submitButton.disabled = false;
                         submitButton.textContent = 'Sumali na';
                         return;
@@ -3131,6 +3261,35 @@
                 const validateData = await validateResponse.json();
                 
                 if (!validateResponse.ok) {
+                    // If mobile is already owned AND this is an invite-token flow, show "Kamusta? Ikaw ba 'to?"
+                    // so user can confirm and link their existing account as kasambahay.
+                    if (validateResponse.status === 409 &&
+                        validateData &&
+                        validateData.code === 'MOBILE_ALREADY_OWNED' &&
+                        inviteTokenData &&
+                        inviteTokenData.token) {
+                        // Reset button state before switching screens
+                        if (sendOtpButton) {
+                            sendOtpButton.disabled = false;
+                            sendOtpButton.textContent = 'Send OTP';
+                        }
+                        if (resendOtpButton) {
+                            resendOtpButton.classList.remove('disabled');
+                            resendOtpButton.textContent = 'Resend OTP';
+                        }
+
+                        const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
+                        const formattedMobileNumber = `${countryCode} ${displayMobile}`;
+                        pendingAlreadyRegistered = {
+                            emailOrMobile: formattedMobileNumber,
+                            isEmail: false,
+                            token: inviteTokenData.token,
+                            mobileE164: fullMobileNumber
+                        };
+                        showAlreadyRegisteredScreen(formattedMobileNumber, false);
+                        return;
+                    }
+
                     // Validation failed - show error message from backend
                     if (sendOtpButton) {
                         sendOtpButton.disabled = false;
@@ -3609,13 +3768,20 @@
                             // Handle "user already exists" errors more gracefully
                             // This might happen if user exists but has staff invite (backend should handle)
                             if (signupResponse.status === 400 || signupResponse.status === 409) {
-                                const errorMsg = data.error || data.message || '';
-                                
-                                // If user already exists, suggest login instead
-                                // Backend should handle staff invites automatically, but if it fails
-                                // we provide helpful error message
-                                if (errorMsg.toLowerCase().includes('already been registered') || 
-                                    errorMsg.toLowerCase().includes('already exists')) {
+                                const errorMsg = (data.error || data.message || '').toLowerCase();
+                                const isAlreadyRegistered = /already|registered|exists/.test(errorMsg);
+                                if (isAlreadyRegistered && inviteTokenData && inviteTokenData.token && pendingSignupData) {
+                                    const displayMobile = pendingSignupData.mobileDisplay || pendingSignupData.mobileE164 || '';
+                                    pendingAlreadyRegistered = {
+                                        emailOrMobile: displayMobile,
+                                        isEmail: false,
+                                        token: inviteTokenData.token,
+                                        mobileE164: pendingSignupData.mobileE164
+                                    };
+                                    showAlreadyRegisteredScreen(displayMobile || pendingSignupData.mobileE164, false);
+                                    throw new Error('ALREADY_REGISTERED_SHOWN');
+                                }
+                                if (isAlreadyRegistered) {
                                     throw new Error('Ang mobile number mo ay nakaregister na. Kung may staff invite ka, subukan mong mag-login sa halip.');
                                 }
                             }
@@ -3647,6 +3813,7 @@
                         verifyOtpButton.disabled = false;
                         verifyOtpButton.textContent = 'Verify';
                     }
+                    if (error.message === 'ALREADY_REGISTERED_SHOWN') return;
                     showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
                 });
         }
@@ -4198,6 +4365,10 @@
             // Clear stored mobile number
             currentVerifyingMobileNumber = null;
 
+            // Hide already-registered section when showing success
+            const alreadyRegisteredSection = document.getElementById('alreadyRegisteredSection');
+            if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
+
             // Show success section
             if (successSection) {
                 successSection.classList.add('show');
@@ -4210,6 +4381,84 @@
                     try { titleEl.focus(); } catch (e) { }
                 }
             }
+        }
+
+        // Show "Kamusta? Ikaw ba 'to?" when email/mobile already registered
+        function showAlreadyRegisteredScreen(contact, isEmail) {
+            const alreadyRegisteredSection = document.getElementById('alreadyRegisteredSection');
+            const contactEl = document.getElementById('alreadyRegisteredContact');
+            const logoSection = document.getElementById('logoSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const formSection = document.getElementById('formSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const successSection = document.getElementById('successSection');
+
+            if (contactEl) contactEl.textContent = contact || (isEmail ? 'email na ito' : 'mobile number na ito');
+            if (logoSection) logoSection.style.display = 'none';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.display = 'none';
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (formSection) { formSection.classList.remove('show'); formSection.style.display = 'none'; }
+            if (mobileOtpSection) { mobileOtpSection.classList.remove('show'); mobileOtpSection.style.display = 'none'; }
+            if (otpVerificationSection) { otpVerificationSection.classList.remove('show'); otpVerificationSection.style.display = 'none'; }
+            if (successSection) successSection.classList.remove('show');
+            if (alreadyRegisteredSection) {
+                alreadyRegisteredSection.classList.add('show');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Hide "Kamusta? Ikaw ba 'to?" and go back to form
+        function hideAlreadyRegisteredScreen() {
+            const alreadyRegisteredSection = document.getElementById('alreadyRegisteredSection');
+            const formSection = document.getElementById('formSection');
+            const logoSection = document.getElementById('logoSection');
+            const tabBar = document.getElementById('signupTabBar');
+            if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
+            if (formSection) { formSection.style.display = 'block'; formSection.classList.add('show'); }
+            if (logoSection) logoSection.style.display = 'flex';
+            if (tabBar) tabBar.style.display = 'flex';
+            pendingAlreadyRegistered = null;
+            hideError();
+            hideSuccess();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        window.hideAlreadyRegisteredScreen = hideAlreadyRegisteredScreen;
+
+        async function handleAkoYan() {
+            if (!pendingAlreadyRegistered || !pendingAlreadyRegistered.token) return;
+            const btn = document.getElementById('akoYanButton');
+            const errEl = document.getElementById('alreadyRegisteredError');
+            if (btn) btn.disabled = true;
+            if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+            try {
+                const payload = { link_existing_user: true, token: pendingAlreadyRegistered.token };
+                if (pendingAlreadyRegistered.isEmail) {
+                    payload.email = pendingAlreadyRegistered.emailOrMobile;
+                } else {
+                    payload.mobile_no = pendingAlreadyRegistered.mobileE164 || pendingAlreadyRegistered.emailOrMobile;
+                }
+                const res = await fetch(SIGNUP_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY, 'apikey': window.SUPABASE_ANON_KEY },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (errEl) { errEl.textContent = data.error || data.message || 'Hindi nai-link. Subukan ulit.'; errEl.style.display = 'block'; errEl.classList.add('show'); }
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+                pendingAlreadyRegistered = null;
+                showSuccessScreen();
+            } catch (e) {
+                console.error('Ako yan / link error:', e);
+                if (errEl) { errEl.textContent = 'May naging problema. Subukan ulit.'; errEl.style.display = 'block'; errEl.classList.add('show'); }
+            }
+            if (btn) btn.disabled = false;
         }
 
         // Device detection function (same as getdomo.html)
@@ -4317,19 +4566,19 @@
             return null;
         }
 
-        // Process OAuth callback: set session, call signup-user, then show success
+        // Process OAuth callback: set session, then show success (no mobile OTP for OAuth)
         async function processOAuthCallback() {
             // Synchronous checks to prevent duplicate processing
             const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
             if (alreadyProcessed) {
-                console.log('OAuth callback already processed, checking if should show mobile OTP screen...');
+                console.log('OAuth callback already processed, checking if should show success screen...');
                 try {
                     initSupabase();
                     if (supabaseClient) {
                         const { data: sessionData } = await supabaseClient.auth.getSession();
                         if (sessionData?.session) {
-                            console.log('Found active session, showing mobile OTP screen...');
-                            showMobileOtpScreenAfterOAuth();
+                            console.log('Found active session, showing success screen...');
+                            showSuccessScreen();
                         }
                     }
                 } catch (e) {
@@ -4412,18 +4661,17 @@
                     }
                 }
 
-                // If we have a session and haven't processed it yet, verify mobile
+                // If we have a session and haven't processed it yet, show success
                 if (session) {
                     // Mark as processed immediately to prevent duplicate processing
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
 
-                    // Show mobile OTP screen to verify mobile number first
-                    // signup-user will be called after mobile verification is complete
-                    console.log('Showing mobile OTP screen for verification...');
+                    // No OTP required for OAuth signup
+                    console.log('Showing success screen for OAuth signup...');
                     // Small delay to ensure DOM is ready
                     setTimeout(() => {
-                        showMobileOtpScreenAfterOAuth();
+                        showSuccessScreen();
                     }, 100);
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
@@ -4458,23 +4706,23 @@
                                 processOAuthCallback();
                             }, 100);
                         } else {
-                            console.log('OAuth already processed, showing mobile OTP screen...');
-                            showMobileOtpScreenAfterOAuth();
+                            console.log('OAuth already processed, showing success screen...');
+                            showSuccessScreen();
                         }
                     }
                 });
             }
         }
 
-        // Check for existing session on page load and show mobile OTP if needed
-        async function checkExistingSessionAndShowMobileOtp() {
+        // Check for existing session on page load and show success if needed
+        async function checkExistingSessionAndShowSuccessAfterOAuth() {
             try {
                 initSupabase();
                 if (supabaseClient) {
                     const { data: sessionData } = await supabaseClient.auth.getSession();
                     if (sessionData?.session && sessionStorage.getItem('oauthProcessed')) {
-                        console.log('Found existing session after OAuth, showing mobile OTP screen...');
-                        showMobileOtpScreenAfterOAuth();
+                        console.log('Found existing session after OAuth, showing success screen...');
+                        showSuccessScreen();
                     }
                 }
             } catch (e) {
@@ -4486,7 +4734,7 @@
         function initializeOAuthHandling() {
             setupAuthStateListener();
             processOAuthCallback();
-            checkExistingSessionAndShowMobileOtp();
+            checkExistingSessionAndShowSuccessAfterOAuth();
         }
 
         if (document.readyState === 'loading') {
