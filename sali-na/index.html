@@ -2122,12 +2122,6 @@
             </div>
         </div>
 
-        <!-- OAuth signup loading: shown while signup-user runs (before success) -->
-        <div id="oauthSignupLoadingState" class="token-loading-state" style="display: none;">
-            <div class="loading-spinner"></div>
-            <p class="loading-text">Inaayos ang iyong account...</p>
-        </div>
-
         <!-- Success Section (Initially Hidden) -->
         <div id="successSection" class="success-section">
             <div class="success-modal-body">
@@ -4144,13 +4138,6 @@
                 return;
             }
 
-            // Persist invite token across OAuth redirects (providers may drop query params)
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const inviteToken = urlParams.get('t');
-                if (inviteToken) sessionStorage.setItem('inviteToken', inviteToken);
-            } catch (e) { }
-
             // Capitalize provider name for display
             const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
             const buttonId = `${provider}AuthButton`;
@@ -4158,8 +4145,8 @@
             // Disable all buttons, but only update text on the clicked button
             setProviderButtonsDisabled(true, `Opening ${providerName}...`, buttonId);
 
-            // Build web redirect URL and preserve query params (e.g. ?t=inviteToken)
-            let redirectTo = window.location.origin + window.location.pathname + window.location.search;
+            // Build web redirect URL - ensure it's HTTPS and properly formatted
+            let redirectTo = window.location.origin + window.location.pathname;
 
             // Remove trailing slash if present
             redirectTo = redirectTo.replace(/\/$/, '');
@@ -4211,14 +4198,8 @@
                 if (!supabaseClient) {
                     throw new Error('Unable to initialize authentication. Please try again later.');
                 }
-                // Persist invite token across OAuth redirects (providers may drop query params)
-                try {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const inviteToken = urlParams.get('t');
-                    if (inviteToken) sessionStorage.setItem('inviteToken', inviteToken);
-                } catch (e) { }
                 // Build complete redirect URL with domain (required by Supabase)
-                let redirectTo = window.location.origin + window.location.pathname + window.location.search;
+                let redirectTo = window.location.origin + window.location.pathname;
                 // Remove trailing slash if present
                 redirectTo = redirectTo.replace(/\/$/, '');
 
@@ -4387,9 +4368,6 @@
             // Hide already-registered section when showing success
             const alreadyRegisteredSection = document.getElementById('alreadyRegisteredSection');
             if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
-
-            // Hide OAuth loading in case it was visible
-            hideOAuthSignupLoading();
 
             // Show success section
             if (successSection) {
@@ -4599,23 +4577,19 @@
                     if (supabaseClient) {
                         const { data: sessionData } = await supabaseClient.auth.getSession();
                         if (sessionData?.session) {
+                            // Ensure we called signup-user for this OAuth session before showing success
                             const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
                             if (!signupCompleted) {
                                 console.log('OAuth session exists but signup-user not completed yet; calling signup-user...');
-                                showOAuthSignupLoading();
                                 await finalizeOAuthSignup(sessionData.session);
                                 sessionStorage.setItem('oauthSignupCompleted', '1');
-                                hideOAuthSignupLoading();
-                                showSuccessScreen();
-                            } else {
-                                showSuccessScreen();
                             }
+                            console.log('Found active session, showing success screen...');
+                            showSuccessScreen();
                         }
                     }
                 } catch (e) {
                     console.error('Error checking session after OAuth:', e);
-                    hideOAuthSignupLoading();
-                    showError(e?.message || 'Failed to finish sign-up. Please try again.');
                 }
                 return;
             }
@@ -4694,30 +4668,31 @@
                     }
                 }
 
-                // If we have a session and haven't processed it yet, call signup-user then show success
+                // If we have a session and haven't processed it yet, show success
                 if (session) {
+                    // Call signup-user to upsert profile/role/invite before success
                     console.log('Calling signup-user for OAuth session...');
-                    showOAuthSignupLoading();
-                    try {
-                        await finalizeOAuthSignup(session);
-                        sessionStorage.setItem('oauthSignupCompleted', '1');
-                        sessionStorage.setItem('oauthProcessed', '1');
-                        hideOAuthSignupLoading();
-                        console.log('Signup-user succeeded, showing success screen...');
-                        setTimeout(() => showSuccessScreen(), 100);
-                    } catch (signupErr) {
-                        hideOAuthSignupLoading();
-                        console.error('Signup-user error:', signupErr);
-                        showError(signupErr?.message || 'Failed to finish sign-up. Please try again.');
-                    }
+                    await finalizeOAuthSignup(session);
+                    sessionStorage.setItem('oauthSignupCompleted', '1');
+
+                    // Mark as processed immediately to prevent duplicate processing
+                    sessionStorage.setItem('oauthProcessed', '1');
+                    console.log('Processing provider signup for user:', session.user?.id);
+
+                    // No OTP required for OAuth signup
+                    console.log('Showing success screen for OAuth signup...');
+                    // Small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        showSuccessScreen();
+                    }, 100);
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
                     // Don't show error - user might just be visiting the page normally
                 }
             } catch (e) {
                 console.error('OAuth callback processing error:', e);
-                hideOAuthSignupLoading();
-                showError(e?.message || 'An error occurred. Please try again.');
+                showError('An error occurred. Please try again.');
+                // Clear processing flag on error so user can retry
                 isProcessingOAuth = false;
             } finally {
                 setProviderButtonsDisabled(false);
@@ -4726,46 +4701,10 @@
             }
         }
 
-        function showOAuthSignupLoading() {
-            const loadingEl = document.getElementById('oauthSignupLoadingState');
-            const logoSection = document.getElementById('logoSection');
-            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
-            const dividerSection = document.getElementById('dividerSection');
-            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
-            const formSection = document.getElementById('formSection');
-            const successSection = document.getElementById('successSection');
-            if (logoSection) logoSection.style.display = 'none';
-            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
-            if (dividerSection) dividerSection.style.display = 'none';
-            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
-            if (formSection) formSection.style.display = 'none';
-            if (successSection) successSection.classList.remove('show');
-            if (loadingEl) {
-                loadingEl.style.display = 'flex';
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        }
-
-        function hideOAuthSignupLoading() {
-            const loadingEl = document.getElementById('oauthSignupLoadingState');
-            if (loadingEl) loadingEl.style.display = 'none';
-        }
-
         async function finalizeOAuthSignup(session) {
             if (!session?.access_token) throw new Error('Missing OAuth session token');
             const user = session.user;
             const userMetadata = user?.user_metadata || {};
-
-            // Ensure invite token is included even if inviteTokenData isn't ready yet
-            const urlParams = new URLSearchParams(window.location.search);
-            const inviteTokenFromUrl = urlParams.get('t');
-            const inviteTokenFromSession = (() => {
-                try {
-                    return sessionStorage.getItem('inviteToken');
-                } catch (e) {
-                    return null;
-                }
-            })();
 
             const fullName =
                 (inviteTokenData && inviteTokenData.name) ||
@@ -4805,8 +4744,6 @@
             };
 
             if (inviteTokenData && inviteTokenData.token) oauthPayload.token = inviteTokenData.token;
-            else if (inviteTokenFromUrl) oauthPayload.token = inviteTokenFromUrl;
-            else if (inviteTokenFromSession) oauthPayload.token = inviteTokenFromSession;
 
             const res = await fetch(SIGNUP_ENDPOINT, {
                 method: 'POST',
@@ -4842,24 +4779,21 @@
                                 processOAuthCallback();
                             }, 100);
                         } else {
-                            // Only show success if signup-user already completed
-                            if (sessionStorage.getItem('oauthSignupCompleted')) {
-                                console.log('OAuth already processed, showing success screen...');
-                                showSuccessScreen();
-                            }
+                            console.log('OAuth already processed, showing success screen...');
+                            showSuccessScreen();
                         }
                     }
                 });
             }
         }
 
-        // Check for existing session on page load and show success only if signup-user already completed
+        // Check for existing session on page load and show success if needed
         async function checkExistingSessionAndShowSuccessAfterOAuth() {
             try {
                 initSupabase();
                 if (supabaseClient) {
                     const { data: sessionData } = await supabaseClient.auth.getSession();
-                    if (sessionData?.session && sessionStorage.getItem('oauthProcessed') && sessionStorage.getItem('oauthSignupCompleted')) {
+                    if (sessionData?.session && sessionStorage.getItem('oauthProcessed')) {
                         console.log('Found existing session after OAuth, showing success screen...');
                         showSuccessScreen();
                     }
