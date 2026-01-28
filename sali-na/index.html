@@ -3829,6 +3829,47 @@
         // Tokenized invite handling
         let inviteTokenData = null; // Store token data for signup
 
+        // Persist invite token across OAuth redirect (Option B)
+        const INVITE_TOKEN_SESSION_KEY = 'inviteTokenData';
+
+        function persistInviteTokenDataForOAuth() {
+            try {
+                if (inviteTokenData?.token) {
+                    sessionStorage.setItem(INVITE_TOKEN_SESSION_KEY, JSON.stringify(inviteTokenData));
+                    return;
+                }
+
+                // If inviteTokenData isn't set yet, but URL has ?t=..., persist the raw token
+                const searchParams = new URLSearchParams(window.location.search);
+                const rawToken = searchParams.get('t');
+                if (rawToken) {
+                    sessionStorage.setItem(INVITE_TOKEN_SESSION_KEY, JSON.stringify({ token: rawToken }));
+                }
+            } catch (e) {
+                console.warn('Failed to persist invite token for OAuth:', e);
+            }
+        }
+
+        function restoreInviteTokenDataAfterOAuth() {
+            try {
+                if (inviteTokenData?.token) return;
+                const raw = sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY);
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (parsed?.token) inviteTokenData = parsed;
+            } catch (e) {
+                console.warn('Failed to restore invite token after OAuth:', e);
+            }
+        }
+
+        function clearInviteTokenDataAfterOAuth() {
+            try {
+                sessionStorage.removeItem(INVITE_TOKEN_SESSION_KEY);
+            } catch (e) {
+                console.warn('Failed to clear invite token after OAuth:', e);
+            }
+        }
+
         async function checkAndValidateInviteToken() {
             const searchParams = new URLSearchParams(window.location.search);
             const token = searchParams.get('t');
@@ -4138,6 +4179,9 @@
                 return;
             }
 
+            // Option B: persist invite token across OAuth redirect
+            persistInviteTokenDataForOAuth();
+
             // Capitalize provider name for display
             const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
             const buttonId = `${provider}AuthButton`;
@@ -4198,6 +4242,9 @@
                 if (!supabaseClient) {
                     throw new Error('Unable to initialize authentication. Please try again later.');
                 }
+                // Option B: persist invite token across OAuth redirect
+                persistInviteTokenDataForOAuth();
+
                 // Build complete redirect URL with domain (required by Supabase)
                 let redirectTo = window.location.origin + window.location.pathname;
                 // Remove trailing slash if present
@@ -4568,6 +4615,9 @@
 
         // Process OAuth callback: set session, then show success (no mobile OTP for OAuth)
         async function processOAuthCallback() {
+            // Option B: restore invite token (URL may no longer contain ?t=...)
+            restoreInviteTokenDataAfterOAuth();
+
             // Synchronous checks to prevent duplicate processing
             const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
             if (alreadyProcessed) {
@@ -4583,6 +4633,7 @@
                                 console.log('OAuth session exists but signup-user not completed yet; calling signup-user...');
                                 await finalizeOAuthSignup(sessionData.session);
                                 sessionStorage.setItem('oauthSignupCompleted', '1');
+                                clearInviteTokenDataAfterOAuth();
                             }
                             console.log('Found active session, showing success screen...');
                             showSuccessScreen();
@@ -4674,6 +4725,7 @@
                     console.log('Calling signup-user for OAuth session...');
                     await finalizeOAuthSignup(session);
                     sessionStorage.setItem('oauthSignupCompleted', '1');
+                    clearInviteTokenDataAfterOAuth();
 
                     // Mark as processed immediately to prevent duplicate processing
                     sessionStorage.setItem('oauthProcessed', '1');
