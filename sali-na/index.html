@@ -4144,6 +4144,13 @@
                 return;
             }
 
+            // Persist invite token across OAuth redirects (providers may drop query params)
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteToken = urlParams.get('t');
+                if (inviteToken) sessionStorage.setItem('inviteToken', inviteToken);
+            } catch (e) { }
+
             // Capitalize provider name for display
             const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
             const buttonId = `${provider}AuthButton`;
@@ -4151,8 +4158,8 @@
             // Disable all buttons, but only update text on the clicked button
             setProviderButtonsDisabled(true, `Opening ${providerName}...`, buttonId);
 
-            // Build web redirect URL - ensure it's HTTPS and properly formatted
-            let redirectTo = window.location.origin + window.location.pathname;
+            // Build web redirect URL and preserve query params (e.g. ?t=inviteToken)
+            let redirectTo = window.location.origin + window.location.pathname + window.location.search;
 
             // Remove trailing slash if present
             redirectTo = redirectTo.replace(/\/$/, '');
@@ -4204,8 +4211,14 @@
                 if (!supabaseClient) {
                     throw new Error('Unable to initialize authentication. Please try again later.');
                 }
+                // Persist invite token across OAuth redirects (providers may drop query params)
+                try {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const inviteToken = urlParams.get('t');
+                    if (inviteToken) sessionStorage.setItem('inviteToken', inviteToken);
+                } catch (e) { }
                 // Build complete redirect URL with domain (required by Supabase)
-                let redirectTo = window.location.origin + window.location.pathname;
+                let redirectTo = window.location.origin + window.location.pathname + window.location.search;
                 // Remove trailing slash if present
                 redirectTo = redirectTo.replace(/\/$/, '');
 
@@ -4746,6 +4759,13 @@
             // Ensure invite token is included even if inviteTokenData isn't ready yet
             const urlParams = new URLSearchParams(window.location.search);
             const inviteTokenFromUrl = urlParams.get('t');
+            const inviteTokenFromSession = (() => {
+                try {
+                    return sessionStorage.getItem('inviteToken');
+                } catch (e) {
+                    return null;
+                }
+            })();
 
             const fullName =
                 (inviteTokenData && inviteTokenData.name) ||
@@ -4786,6 +4806,7 @@
 
             if (inviteTokenData && inviteTokenData.token) oauthPayload.token = inviteTokenData.token;
             else if (inviteTokenFromUrl) oauthPayload.token = inviteTokenFromUrl;
+            else if (inviteTokenFromSession) oauthPayload.token = inviteTokenFromSession;
 
             const res = await fetch(SIGNUP_ENDPOINT, {
                 method: 'POST',
