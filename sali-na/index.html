@@ -4838,7 +4838,7 @@
             throw new Error(errMsg);
         }
 
-        // Set up auth state change listener as backup
+        // Set up auth state change listener as backup — ensures signup-user is always called for OAuth
         function setupAuthStateListener() {
             if (!supabaseClient) {
                 initSupabase();
@@ -4848,9 +4848,19 @@
                     console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
                     if (event === 'SIGNED_IN' && session) {
                         const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
+                        const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
+                        // Ensure signup-user is called when we have a session but signup not yet completed (safety net if processOAuthCallback didn't run or had no session yet)
+                        if (!signupCompleted && session?.access_token) {
+                            console.log('[OAuth] Ensuring signup-user is called from auth state listener');
+                            finalizeOAuthSignup(session)
+                                .then(() => {
+                                    sessionStorage.setItem('oauthSignupCompleted', '1');
+                                    clearInviteTokenDataAfterOAuth();
+                                })
+                                .catch((e) => console.warn('Auth listener signup-user failed:', e));
+                        }
                         if (!alreadyProcessed) {
                             console.log('User signed in via auth state change, processing...');
-                            // Small delay to ensure everything is ready
                             setTimeout(() => {
                                 processOAuthCallback();
                             }, 100);
