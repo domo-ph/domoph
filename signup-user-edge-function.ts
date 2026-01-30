@@ -352,16 +352,15 @@ serve(async (req) => {
         }
 
         // Prepare user metadata
-        // If staff invite found, use invite data for name (nickname from invite)
-        const inviteName = staffInviteFound?.name || full_name || ''
-        const inviteNickname = staffInviteFound?.name || full_name || '' // Use invite name as nickname
+        // Invite name is used only as nickname; full_name/first_name/last_name come from request
+        const inviteNickname = staffInviteFound?.name || full_name || '' // Use invite name as nickname only
 
-        console.log('[SIGNUP] Creating user with role:', userRole, 'Invite found:', !!staffInviteFound, 'Invite name:', inviteName, 'Staff invite:', JSON.stringify(staffInviteFound, null, 2))
+        console.log('[SIGNUP] Creating user with role:', userRole, 'Invite found:', !!staffInviteFound, 'Invite name (nickname only):', staffInviteFound?.name, 'Staff invite:', JSON.stringify(staffInviteFound, null, 2))
 
         const userMetadata: Record<string, any> = {
-            full_name: inviteName || full_name || '',
-            first_name: first_name || inviteName?.split(' ')[0] || full_name?.split(' ')[0] || '',
-            last_name: last_name || inviteName?.split(' ').slice(1).join(' ') || full_name?.split(' ').slice(1).join(' ') || '',
+            full_name: full_name || '',
+            first_name: first_name || full_name?.split(' ')[0] || '',
+            last_name: last_name || full_name?.split(' ').slice(1).join(' ') || '',
             mobile_no: normalizedMobile || mobile_no,
             role: userRole, // This should be 'kasambahay' if invite found
             nickname: inviteNickname // Set nickname from invite if available
@@ -381,7 +380,7 @@ serve(async (req) => {
             const authUser = authUserData.user
             const oauthEmail = normalizedEmail || normalizeEmail(authUser.email) || null
             const oauthFullName =
-                (inviteName || full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || oauthEmail || 'User')
+                (full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || oauthEmail || 'User')
 
             if (!oauthEmail && !normalizedMobile) {
                 return new Response(
@@ -443,6 +442,20 @@ serve(async (req) => {
 
             // If staff invite was found, assign household, set specific_role, ensure membership, reconcile pending user, and mark invite as done
             if (staffInviteFound) {
+                // Resolve pendingUserId early so we can skip household_members insert when reconciling (avoids duplicate row)
+                let pendingUserId = (staffInviteFound as { user_id?: string | null }).user_id ?? null
+                if (!pendingUserId && staffInviteFound?.id) {
+                    const { data: inviteRow } = await supabaseAdmin
+                        .from('staff_invite')
+                        .select('user_id')
+                        .eq('id', staffInviteFound.id)
+                        .maybeSingle()
+                    pendingUserId = inviteRow?.user_id ?? null
+                    if (pendingUserId) {
+                        console.log('[SIGNUP][OAuth] Fetched pending user_id from staff_invite:', pendingUserId)
+                    }
+                }
+
                 const { data: userRow, error: userFetchError } = await supabaseAdmin
                     .from('users')
                     .select('id, household')
@@ -467,6 +480,7 @@ serve(async (req) => {
                     if (userUpdateHouseholdError) {
                         console.error('Failed to update users.household/specific_role:', userUpdateHouseholdError)
                     } else {
+                        // Only insert household_members when not reconciling a pending user (reconciliation adds it and avoids duplicate)
                         const { data: existingMember, error: memberCheckError } = await supabaseAdmin
                             .from('household_members')
                             .select('id')
@@ -474,7 +488,7 @@ serve(async (req) => {
                             .eq('user_id', userRow.id)
                             .maybeSingle()
 
-                        if (!existingMember && !memberCheckError) {
+                        if (!existingMember && !memberCheckError && !pendingUserId) {
                             const { error: insertMemberError } = await supabaseAdmin
                                 .from('household_members')
                                 .insert({ household_id: householdId, user_id: userRow.id })
@@ -485,21 +499,6 @@ serve(async (req) => {
                     }
                 }
 
-                // Token-based reconciliation for OAuth flow:
-                // If the invite had a placeholder/pending user_id, migrate its data to the authenticated user and delete it.
-                // Fallback: validate_invite_token may not return user_id; fetch from staff_invite if missing.
-                let pendingUserId = (staffInviteFound as { user_id?: string | null }).user_id ?? null
-                if (!pendingUserId && staffInviteFound?.id) {
-                    const { data: inviteRow } = await supabaseAdmin
-                        .from('staff_invite')
-                        .select('user_id')
-                        .eq('id', staffInviteFound.id)
-                        .maybeSingle()
-                    pendingUserId = inviteRow?.user_id ?? null
-                    if (pendingUserId) {
-                        console.log('[SIGNUP][OAuth] Fetched pending user_id from staff_invite:', pendingUserId)
-                    }
-                }
                 if (!pendingUserId && staffInviteFound?.id) {
                     console.log('[SIGNUP][OAuth] No pending user_id on staff_invite; skipping reconciliation for invite id:', staffInviteFound.id)
                 }
@@ -595,11 +594,11 @@ serve(async (req) => {
 
         // If user profile doesn't exist, create it manually
         if (!existingUser) {
-            // Use invite data if available
-            const finalName = staffInviteFound?.name || full_name || ''
+            // Full/first/last from request only; invite name only as nickname
+            const finalName = full_name || ''
             const finalFirstName = first_name || finalName?.split(' ')[0] || ''
             const finalLastName = last_name || finalName?.split(' ').slice(1).join(' ') || ''
-            const finalNickname = staffInviteFound?.name || full_name || '' // Use invite name as nickname
+            const finalNickname = staffInviteFound?.name || full_name || '' // Invite name as nickname only
 
             const { error: insertError } = await supabaseAdmin
                 .from('users')
@@ -631,11 +630,11 @@ serve(async (req) => {
             }
         } else {
             // Update existing user profile with correct role and mobile_no
-            // Use invite data if available
-            const finalName = staffInviteFound?.name || full_name || existingUser.full_name || ''
-            const finalFirstName = first_name || finalName?.split(' ')[0] || existingUser.first_name || ''
-            const finalLastName = last_name || finalName?.split(' ').slice(1).join(' ') || existingUser.last_name || ''
-            const finalNickname = staffInviteFound?.name || full_name || existingUser.nick_name || ''
+            // Full/first/last from request or existing user; invite name only as nickname
+            const finalName = full_name || existingUser.full_name || ''
+            const finalFirstName = first_name || full_name?.split(' ')[0] || existingUser.first_name || ''
+            const finalLastName = last_name || full_name?.split(' ').slice(1).join(' ') || existingUser.last_name || ''
+            const finalNickname = staffInviteFound?.name || full_name || existingUser.nick_name || '' // Invite name as nickname only
 
             const { error: updateError } = await supabaseAdmin
                 .from('users')
@@ -657,6 +656,20 @@ serve(async (req) => {
 
         // If staff invite was found, assign household, set specific_role, ensure membership, and mark invite as done
         if (staffInviteFound) {
+            // Resolve pendingUserId early so we can skip household_members insert when reconciling (avoids duplicate row)
+            let pendingUserId = (staffInviteFound as { user_id?: string | null }).user_id ?? null
+            if (!pendingUserId && staffInviteFound?.id) {
+                const { data: inviteRow } = await supabaseAdmin
+                    .from('staff_invite')
+                    .select('user_id')
+                    .eq('id', staffInviteFound.id)
+                    .maybeSingle()
+                pendingUserId = inviteRow?.user_id ?? null
+                if (pendingUserId) {
+                    console.log('[SIGNUP] Fetched pending user_id from staff_invite (manual signup):', pendingUserId)
+                }
+            }
+
             // 1) Fetch the just-created user profile (to get users.id)
             const { data: userRow, error: userFetchError } = await supabaseAdmin
                 .from('users')
@@ -685,7 +698,7 @@ serve(async (req) => {
                 if (userUpdateHouseholdError) {
                     console.error('Failed to update users.household/specific_role:', userUpdateHouseholdError)
                 } else {
-                    // 3) Ensure household_members entry exists (idempotent)
+                    // 3) Ensure household_members entry exists (idempotent). Skip when reconciling pending user (migratePendingUserHouseholdMembers adds it).
                     const { data: existingMember, error: memberCheckError } = await supabaseAdmin
                         .from('household_members')
                         .select('id')
@@ -693,7 +706,7 @@ serve(async (req) => {
                         .eq('user_id', userRow.id)
                         .maybeSingle()
 
-                    if (!existingMember && !memberCheckError) {
+                    if (!existingMember && !memberCheckError && !pendingUserId) {
                         const { error: insertMemberError } = await supabaseAdmin
                             .from('household_members')
                             .insert({ household_id: householdId, user_id: userRow.id })
@@ -705,19 +718,6 @@ serve(async (req) => {
             }
 
             // 4) Token-based reconciliation: migrate placeholder user to new user, then delete placeholder
-            // Fallback: validate_invite_token or select may not include user_id; fetch from staff_invite if missing.
-            let pendingUserId = (staffInviteFound as { user_id?: string | null }).user_id ?? null
-            if (!pendingUserId && staffInviteFound?.id) {
-                const { data: inviteRow } = await supabaseAdmin
-                    .from('staff_invite')
-                    .select('user_id')
-                    .eq('id', staffInviteFound.id)
-                    .maybeSingle()
-                pendingUserId = inviteRow?.user_id ?? null
-                if (pendingUserId) {
-                    console.log('[SIGNUP] Fetched pending user_id from staff_invite (manual signup):', pendingUserId)
-                }
-            }
             if (!pendingUserId && staffInviteFound?.id) {
                 console.log('[SIGNUP] No pending user_id on staff_invite; skipping reconciliation for invite id:', staffInviteFound.id)
             }
