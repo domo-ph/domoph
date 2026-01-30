@@ -3831,6 +3831,7 @@
 
         // Persist invite token across OAuth redirect (Option B)
         const INVITE_TOKEN_SESSION_KEY = 'inviteTokenData';
+        const OAUTH_SIGNUP_REQUESTED_KEY = 'oauthSignupRequested';
 
         function persistInviteTokenDataForOAuth() {
             try {
@@ -4642,16 +4643,7 @@
                     if (supabaseClient) {
                         const { data: sessionData } = await supabaseClient.auth.getSession();
                         if (sessionData?.session) {
-                            const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
-                            if (!signupCompleted) {
-                                console.log('OAuth session exists but signup-user not completed yet; calling signup-user in background...');
-                                finalizeOAuthSignup(sessionData.session)
-                                    .then(() => {
-                                        sessionStorage.setItem('oauthSignupCompleted', '1');
-                                        clearInviteTokenDataAfterOAuth();
-                                    })
-                                    .catch((e) => console.warn('Background signup-user failed:', e));
-                            }
+                            callSignupUserOnce(sessionData.session);
                             console.log('Found active session, showing success screen...');
                             showSuccessScreen();
                         }
@@ -4744,15 +4736,8 @@
                     console.log('Showing success screen for OAuth signup (signup-user will run in background)...');
                     setTimeout(() => showSuccessScreen(), 100);
 
-                    // Call signup-user in background — do not await; user already sees success.
-                    // Clear invite token only after signup-user succeeds so the payload includes the token (for pending user reconciliation).
-                    console.log('Calling signup-user for OAuth session in background...');
-                    finalizeOAuthSignup(session)
-                        .then(() => {
-                            sessionStorage.setItem('oauthSignupCompleted', '1');
-                            clearInviteTokenDataAfterOAuth();
-                        })
-                        .catch((e) => console.warn('Background signup-user failed:', e));
+                    // Call signup-user once in background (guard prevents duplicate calls from listener + processOAuthCallback).
+                    callSignupUserOnce(session);
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
                     // Don't show error - user might just be visiting the page normally
@@ -4767,6 +4752,23 @@
                 // Clear processing flag after completion
                 isProcessingOAuth = false;
             }
+        }
+
+        // Ensures signup-user is called at most once per OAuth return (processOAuthCallback + auth listener can both fire).
+        function callSignupUserOnce(session) {
+            if (!session?.access_token) return;
+            if (sessionStorage.getItem('oauthSignupCompleted') || sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) return;
+            sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
+            console.log('[OAuth] Calling signup-user (once)...');
+            finalizeOAuthSignup(session)
+                .then(() => {
+                    sessionStorage.setItem('oauthSignupCompleted', '1');
+                    clearInviteTokenDataAfterOAuth();
+                })
+                .catch((e) => {
+                    console.warn('signup-user failed:', e);
+                    sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
+                });
         }
 
         async function finalizeOAuthSignup(session) {
@@ -4850,16 +4852,7 @@
                     const isOAuthSession = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
                     if (isOAuthSession && session) {
                         const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
-                        const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
-                        if (!signupCompleted && session?.access_token) {
-                            console.log('[OAuth] Calling signup-user from auth state listener (event: ' + event + ')');
-                            finalizeOAuthSignup(session)
-                                .then(() => {
-                                    sessionStorage.setItem('oauthSignupCompleted', '1');
-                                    clearInviteTokenDataAfterOAuth();
-                                })
-                                .catch((e) => console.warn('Auth listener signup-user failed:', e));
-                        }
+                        callSignupUserOnce(session);
                         if (!alreadyProcessed) {
                             console.log('User signed in via auth state change, processing...');
                             setTimeout(() => {

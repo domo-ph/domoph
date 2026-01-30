@@ -15,6 +15,44 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Migrate household_members from pending user to signed-up user (RPC may not include this). */
+async function migratePendingUserHouseholdMembers(
+    supabaseAdmin: ReturnType<typeof createClient>,
+    pendingUserId: string,
+    newUserId: string,
+    label: string
+) {
+    const { data: pendingMembers, error: fetchErr } = await supabaseAdmin
+        .from('household_members')
+        .select('household_id')
+        .eq('user_id', pendingUserId)
+    if (fetchErr) {
+        console.warn('[SIGNUP][' + label + '] Failed to fetch pending user household_members:', fetchErr)
+        return
+    }
+    if (!pendingMembers?.length) return
+    for (const row of pendingMembers) {
+        const { data: existing } = await supabaseAdmin
+            .from('household_members')
+            .select('id')
+            .eq('household_id', row.household_id)
+            .eq('user_id', newUserId)
+            .maybeSingle()
+        if (!existing) {
+            const { error: insertErr } = await supabaseAdmin
+                .from('household_members')
+                .insert({ household_id: row.household_id, user_id: newUserId })
+            if (insertErr) console.warn('[SIGNUP][' + label + '] Failed to insert household_members:', insertErr)
+            else console.log('[SIGNUP][' + label + '] Migrated household_members:', row.household_id, '->', newUserId)
+        }
+    }
+    const { error: deleteErr } = await supabaseAdmin
+        .from('household_members')
+        .delete()
+        .eq('user_id', pendingUserId)
+    if (deleteErr) console.warn('[SIGNUP][' + label + '] Failed to delete pending user household_members:', deleteErr)
+}
+
 serve(async (req) => {
     // Handle CORS preflight requests
     if (req.method === 'OPTIONS') {
@@ -163,6 +201,7 @@ serve(async (req) => {
                         if (migrationError) {
                             console.error('[SIGNUP] link_existing_user: migrate_pending_user_to_authenticated error:', migrationError)
                         } else if (migrationResult?.success !== false) {
+                            await migratePendingUserHouseholdMembers(supabaseAdmin, pendingUserId, existingUserRow.id, 'link_existing_user')
                             if (pendingUserColor) {
                                 const { error: colorErr } = await supabaseAdmin.from('users').update({ user_color: pendingUserColor }).eq('id', existingUserRow.id)
                                 if (colorErr) console.warn('[SIGNUP] link_existing_user: Failed to set user_color:', colorErr)
@@ -479,6 +518,7 @@ serve(async (req) => {
                         if (migrationError) {
                             console.error('[SIGNUP][OAuth] migrate_pending_user_to_authenticated error:', migrationError)
                         } else if (migrationResult?.success !== false) {
+                            await migratePendingUserHouseholdMembers(supabaseAdmin, pendingUserId, userRow.id, 'OAuth')
                             if (pendingUserColor) {
                                 const { error: colorErr } = await supabaseAdmin.from('users').update({ user_color: pendingUserColor }).eq('id', userRow.id)
                                 if (colorErr) console.warn('[SIGNUP][OAuth] Failed to set user_color:', colorErr)
@@ -707,6 +747,7 @@ serve(async (req) => {
                     if (migrationError) {
                         console.error('[SIGNUP] migrate_pending_user_to_authenticated error:', migrationError)
                     } else if (migrationResult?.success !== false) {
+                        await migratePendingUserHouseholdMembers(supabaseAdmin, pendingUserId, newUserId, 'manual signup')
                         if (pendingUserColor) {
                             const { error: colorErr } = await supabaseAdmin.from('users').update({ user_color: pendingUserColor }).eq('id', newUserId)
                             if (colorErr) console.warn('[SIGNUP] Failed to set user_color:', colorErr)
