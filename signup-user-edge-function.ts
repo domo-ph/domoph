@@ -150,6 +150,11 @@ serve(async (req) => {
                 const pendingUserId = inv.user_id ?? null
                 if (pendingUserId) {
                     try {
+                        const { data: pendingUser } = await supabaseAdmin.from('users').select('user_color').eq('id', pendingUserId).maybeSingle()
+                        const pendingUserColor = pendingUser?.user_color ?? null
+                        if (pendingUserColor) {
+                            console.log('[SIGNUP] link_existing_user: Inheriting pending user color:', pendingUserColor)
+                        }
                         console.log('[SIGNUP] link_existing_user: migrate_pending_user_to_authenticated(', pendingUserId, ',', existingUserRow.id, ')')
                         const { data: migrationResult, error: migrationError } = await supabaseAdmin.rpc('migrate_pending_user_to_authenticated', {
                             old_user_id: pendingUserId,
@@ -158,6 +163,11 @@ serve(async (req) => {
                         if (migrationError) {
                             console.error('[SIGNUP] link_existing_user: migrate_pending_user_to_authenticated error:', migrationError)
                         } else if (migrationResult?.success !== false) {
+                            if (pendingUserColor) {
+                                const { error: colorErr } = await supabaseAdmin.from('users').update({ user_color: pendingUserColor }).eq('id', existingUserRow.id)
+                                if (colorErr) console.warn('[SIGNUP] link_existing_user: Failed to set user_color:', colorErr)
+                                else console.log('[SIGNUP] link_existing_user: Set signed-up user color from pending:', pendingUserColor)
+                            }
                             const { error: deleteError } = await supabaseAdmin.from('users').delete().eq('id', pendingUserId)
                             if (deleteError) {
                                 console.warn('[SIGNUP] link_existing_user: Failed to delete placeholder user after migration:', deleteError)
@@ -392,7 +402,7 @@ serve(async (req) => {
                 }
             }
 
-            // If staff invite was found, assign household, set specific_role, ensure membership, and mark invite as done
+            // If staff invite was found, assign household, set specific_role, ensure membership, reconcile pending user, and mark invite as done
             if (staffInviteFound) {
                 const { data: userRow, error: userFetchError } = await supabaseAdmin
                     .from('users')
@@ -433,6 +443,56 @@ serve(async (req) => {
                                 console.error('Failed to insert household_members row:', insertMemberError)
                             }
                         }
+                    }
+                }
+
+                // Token-based reconciliation for OAuth flow:
+                // If the invite had a placeholder/pending user_id, migrate its data to the authenticated user and delete it.
+                // Fallback: validate_invite_token may not return user_id; fetch from staff_invite if missing.
+                let pendingUserId = (staffInviteFound as { user_id?: string | null }).user_id ?? null
+                if (!pendingUserId && staffInviteFound?.id) {
+                    const { data: inviteRow } = await supabaseAdmin
+                        .from('staff_invite')
+                        .select('user_id')
+                        .eq('id', staffInviteFound.id)
+                        .maybeSingle()
+                    pendingUserId = inviteRow?.user_id ?? null
+                    if (pendingUserId) {
+                        console.log('[SIGNUP][OAuth] Fetched pending user_id from staff_invite:', pendingUserId)
+                    }
+                }
+                if (!pendingUserId && staffInviteFound?.id) {
+                    console.log('[SIGNUP][OAuth] No pending user_id on staff_invite; skipping reconciliation for invite id:', staffInviteFound.id)
+                }
+                if (pendingUserId && userRow?.id) {
+                    try {
+                        const { data: pendingUser } = await supabaseAdmin.from('users').select('user_color').eq('id', pendingUserId).maybeSingle()
+                        const pendingUserColor = pendingUser?.user_color ?? null
+                        if (pendingUserColor) {
+                            console.log('[SIGNUP][OAuth] Inheriting pending user color:', pendingUserColor)
+                        }
+                        console.log('[SIGNUP][OAuth] Reconciling placeholder user: migrate_pending_user_to_authenticated(', pendingUserId, ',', userRow.id, ')')
+                        const { data: migrationResult, error: migrationError } = await supabaseAdmin.rpc('migrate_pending_user_to_authenticated', {
+                            old_user_id: pendingUserId,
+                            new_user_id: userRow.id,
+                        })
+                        if (migrationError) {
+                            console.error('[SIGNUP][OAuth] migrate_pending_user_to_authenticated error:', migrationError)
+                        } else if (migrationResult?.success !== false) {
+                            if (pendingUserColor) {
+                                const { error: colorErr } = await supabaseAdmin.from('users').update({ user_color: pendingUserColor }).eq('id', userRow.id)
+                                if (colorErr) console.warn('[SIGNUP][OAuth] Failed to set user_color:', colorErr)
+                                else console.log('[SIGNUP][OAuth] Set signed-up user color from pending:', pendingUserColor)
+                            }
+                            const { error: deleteError } = await supabaseAdmin.from('users').delete().eq('id', pendingUserId)
+                            if (deleteError) {
+                                console.warn('[SIGNUP][OAuth] Failed to delete placeholder user after migration:', deleteError)
+                            } else {
+                                console.log('[SIGNUP][OAuth] Placeholder user deleted after successful migration (OAuth):', pendingUserId)
+                            }
+                        }
+                    } catch (reconcileErr) {
+                        console.error('[SIGNUP][OAuth] Reconciliation error (non-fatal):', reconcileErr)
                     }
                 }
 
@@ -605,22 +665,58 @@ serve(async (req) => {
             }
 
             // 4) Token-based reconciliation: migrate placeholder user to new user, then delete placeholder
-            const pendingUserId = (staffInviteFound as { user_id?: string }).user_id
-            if (pendingUserId && userRow?.id) {
+            // Fallback: validate_invite_token or select may not include user_id; fetch from staff_invite if missing.
+            let pendingUserId = (staffInviteFound as { user_id?: string | null }).user_id ?? null
+            if (!pendingUserId && staffInviteFound?.id) {
+                const { data: inviteRow } = await supabaseAdmin
+                    .from('staff_invite')
+                    .select('user_id')
+                    .eq('id', staffInviteFound.id)
+                    .maybeSingle()
+                pendingUserId = inviteRow?.user_id ?? null
+                if (pendingUserId) {
+                    console.log('[SIGNUP] Fetched pending user_id from staff_invite (manual signup):', pendingUserId)
+                }
+            }
+            if (!pendingUserId && staffInviteFound?.id) {
+                console.log('[SIGNUP] No pending user_id on staff_invite; skipping reconciliation for invite id:', staffInviteFound.id)
+            }
+            // Use existing userRow.id or re-fetch if initial fetch failed (e.g. trigger delay) so we can still reconcile
+            let newUserId = userRow?.id ?? null
+            if (pendingUserId && !newUserId && authData?.user?.id) {
+                const { data: refetched } = await supabaseAdmin
+                    .from('users')
+                    .select('id')
+                    .eq('authid', authData.user.id)
+                    .maybeSingle()
+                newUserId = refetched?.id ?? null
+                if (newUserId) console.log('[SIGNUP] Re-fetched user row for reconciliation:', newUserId)
+            }
+            if (pendingUserId && newUserId) {
                 try {
-                    console.log('[SIGNUP] Reconciling placeholder user: migrate_pending_user_to_authenticated(', pendingUserId, ',', userRow.id, ')')
+                    const { data: pendingUser } = await supabaseAdmin.from('users').select('user_color').eq('id', pendingUserId).maybeSingle()
+                    const pendingUserColor = pendingUser?.user_color ?? null
+                    if (pendingUserColor) {
+                        console.log('[SIGNUP] Inheriting pending user color (manual signup):', pendingUserColor)
+                    }
+                    console.log('[SIGNUP] Reconciling placeholder user: migrate_pending_user_to_authenticated(', pendingUserId, ',', newUserId, ')')
                     const { data: migrationResult, error: migrationError } = await supabaseAdmin.rpc('migrate_pending_user_to_authenticated', {
                         old_user_id: pendingUserId,
-                        new_user_id: userRow.id,
+                        new_user_id: newUserId,
                     })
                     if (migrationError) {
                         console.error('[SIGNUP] migrate_pending_user_to_authenticated error:', migrationError)
                     } else if (migrationResult?.success !== false) {
+                        if (pendingUserColor) {
+                            const { error: colorErr } = await supabaseAdmin.from('users').update({ user_color: pendingUserColor }).eq('id', newUserId)
+                            if (colorErr) console.warn('[SIGNUP] Failed to set user_color:', colorErr)
+                            else console.log('[SIGNUP] Set signed-up user color from pending (manual signup):', pendingUserColor)
+                        }
                         const { error: deleteError } = await supabaseAdmin.from('users').delete().eq('id', pendingUserId)
                         if (deleteError) {
                             console.warn('[SIGNUP] Failed to delete placeholder user after migration:', deleteError)
                         } else {
-                            console.log('[SIGNUP] Placeholder user deleted after successful migration:', pendingUserId)
+                            console.log('[SIGNUP] Placeholder user deleted after successful migration (manual signup):', pendingUserId)
                         }
                     }
                 } catch (reconcileErr) {

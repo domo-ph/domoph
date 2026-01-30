@@ -4642,13 +4642,15 @@
                     if (supabaseClient) {
                         const { data: sessionData } = await supabaseClient.auth.getSession();
                         if (sessionData?.session) {
-                            // Ensure we called signup-user for this OAuth session before showing success
                             const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
                             if (!signupCompleted) {
-                                console.log('OAuth session exists but signup-user not completed yet; calling signup-user...');
-                                await finalizeOAuthSignup(sessionData.session);
-                                sessionStorage.setItem('oauthSignupCompleted', '1');
-                                clearInviteTokenDataAfterOAuth();
+                                console.log('OAuth session exists but signup-user not completed yet; calling signup-user in background...');
+                                finalizeOAuthSignup(sessionData.session)
+                                    .then(() => {
+                                        sessionStorage.setItem('oauthSignupCompleted', '1');
+                                        clearInviteTokenDataAfterOAuth();
+                                    })
+                                    .catch((e) => console.warn('Background signup-user failed:', e));
                             }
                             console.log('Found active session, showing success screen...');
                             showSuccessScreen();
@@ -4734,24 +4736,23 @@
                     }
                 }
 
-                // If we have a session and haven't processed it yet, show success
+                // If we have a session and haven't processed it yet, show success immediately (don't wait for signup-user)
                 if (session) {
-                    // Call signup-user to upsert profile/role/invite before success
-                    console.log('Calling signup-user for OAuth session...');
-                    await finalizeOAuthSignup(session);
-                    sessionStorage.setItem('oauthSignupCompleted', '1');
-                    clearInviteTokenDataAfterOAuth();
-
-                    // Mark as processed immediately to prevent duplicate processing
+                    // Mark as processed and show "Nakaregister na tayo" immediately so user doesn't wait
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
+                    console.log('Showing success screen for OAuth signup (signup-user will run in background)...');
+                    setTimeout(() => showSuccessScreen(), 100);
 
-                    // No OTP required for OAuth signup
-                    console.log('Showing success screen for OAuth signup...');
-                    // Small delay to ensure DOM is ready
-                    setTimeout(() => {
-                        showSuccessScreen();
-                    }, 100);
+                    // Call signup-user in background — do not await; user already sees success.
+                    // Clear invite token only after signup-user succeeds so the payload includes the token (for pending user reconciliation).
+                    console.log('Calling signup-user for OAuth session in background...');
+                    finalizeOAuthSignup(session)
+                        .then(() => {
+                            sessionStorage.setItem('oauthSignupCompleted', '1');
+                            clearInviteTokenDataAfterOAuth();
+                        })
+                        .catch((e) => console.warn('Background signup-user failed:', e));
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
                     // Don't show error - user might just be visiting the page normally
