@@ -4846,12 +4846,13 @@
             if (supabaseClient) {
                 supabaseClient.auth.onAuthStateChange((event, session) => {
                     console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
-                    if (event === 'SIGNED_IN' && session) {
+                    // After OAuth redirect Supabase fires INITIAL_SESSION (not SIGNED_IN) when it restores session from URL. Must handle both or signup-user is never called.
+                    const isOAuthSession = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
+                    if (isOAuthSession && session) {
                         const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
                         const signupCompleted = sessionStorage.getItem('oauthSignupCompleted');
-                        // Ensure signup-user is called when we have a session but signup not yet completed (safety net if processOAuthCallback didn't run or had no session yet)
                         if (!signupCompleted && session?.access_token) {
-                            console.log('[OAuth] Ensuring signup-user is called from auth state listener');
+                            console.log('[OAuth] Calling signup-user from auth state listener (event: ' + event + ')');
                             finalizeOAuthSignup(session)
                                 .then(() => {
                                     sessionStorage.setItem('oauthSignupCompleted', '1');
