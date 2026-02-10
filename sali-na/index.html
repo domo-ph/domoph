@@ -131,7 +131,7 @@
             padding: 12px 16px;
             background-color: var(--surface-subtle);
             border: 1px solid var(--text-disabled);
-            border-radius: 8px;
+            border-radius: 32px;
             font-size: 14px;
             font-weight: 700;
             line-height: 1.2857142857142858em;
@@ -141,7 +141,7 @@
             transition: opacity 0.2s, background-color 0.2s;
             display: flex;
             align-items: center;
-            justify-content: left;
+            justify-content: center;
             gap: 10px;
             font-family: 'Inter', sans-serif;
         }
@@ -163,13 +163,27 @@
             letter-spacing: -0.006em;
             color: var(--surface-subtle);
             text-align: left;
+            margin: 0 0 var(--spacing-sm) 0;
+        }
+
+        .social-auth-buttons-row {
+            display: flex;
+            gap: var(--spacing-m);
+            width: 100%;
+        }
+
+        .social-auth-buttons-row .auth-button {
+            flex: 1;
         }
 
         /* Or Divider */
         .divider-section {
-            padding: var(--spacing-m);
+            padding: 0 var(--spacing-m);
+            margin-top: 8px;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: var(--spacing-ml);
         }
 
@@ -177,6 +191,7 @@
             flex: 1;
             height: 1px;
             background-color: var(--text-disabled);
+            display: none;
         }
 
         .divider-text {
@@ -185,15 +200,22 @@
             line-height: 1.4285714285714286em;
             letter-spacing: -0.006em;
             color: var(--surface-subtle);
+            display: block;
+            width: 100%;
+            text-align: center;
         }
 
-        /* Email/Mobile Link */
+        /* Email/Mobile Link - hidden by default when form-first */
         .email-mobile-link-section {
             padding: var(--spacing-ml) var(--spacing-m);
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
             gap: var(--spacing-m);
+        }
+
+        .email-mobile-link-section.show {
+            display: flex;
         }
 
         .email-mobile-link {
@@ -214,16 +236,16 @@
             text-decoration: underline;
         }
 
-        /* Form Section */
+        /* Form Section - visible on load (form-first layout) */
         .form-section {
-            display: none;
-            padding: 20px var(--spacing-m);
+            display: block;
+            padding: 20px var(--spacing-m) 0;
             background-color: transparent;
             margin-top: 0;
         }
 
-        .form-section.show {
-            display: block;
+        .form-section.hide {
+            display: none;
         }
 
         /* Mobile OTP Section */
@@ -464,7 +486,7 @@
             margin-bottom: 0;
         }
 
-        /* Tab switcher: Email signup | Mobile signup */
+        /* Tab switcher: EMAIL SIGN-UP | MOBILE SIGN-UP - visible on load */
         .signup-tab-bar {
             display: flex;
             gap: 0;
@@ -1185,7 +1207,7 @@
 
         /* Button Section */
         .button-section {
-            padding: 40px 0;
+            /* padding: 12px 0 0; */
             display: flex;
             flex-direction: column;
             gap: 14px;
@@ -1427,8 +1449,8 @@
             }
 
             .form-section {
-                padding: 20px var(--spacing-m);
-                padding-bottom: max(24px, env(safe-area-inset-bottom));
+                padding: 16px var(--spacing-m);
+                padding-bottom: max(16px, env(safe-area-inset-bottom));
                 background-color: transparent;
             }
 
@@ -1889,31 +1911,121 @@
             <h1 class="logo-title">Sali na sa Domo!</h1>
         </div>
 
+        <!-- Form Section (visible on load: tabs + mobile/password + Mag-sign up) -->
+        <div id="formSection" class="form-section">
+            <!-- Loading State for Token Check -->
+            <div id="tokenLoadingState" class="token-loading-state" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Sinusuri ang invite link...</p>
+            </div>
+
+            <!-- Token Error Message -->
+            <div id="tokenErrorMessage" class="error-message" role="alert" style="display: none;"></div>
+
+            <!-- Tab switcher: EMAIL SIGN-UP | MOBILE SIGN-UP -->
+            <div id="signupTabBar" class="signup-tab-bar">
+                <button type="button" class="signup-tab" id="signupTabEmail" data-tab="email" aria-selected="false">EMAIL SIGN-UP</button>
+                <button type="button" class="signup-tab" id="signupTabMobile" data-tab="mobile" aria-selected="true">MOBILE SIGN-UP</button>
+            </div>
+
+            <form id="signupForm" onsubmit="handleSignup(event)">
+                <!-- Name Field (shown when Email tab or token present) -->
+                <div class="form-group" id="nameFieldGroup" style="display: none;">
+                    <div class="mobile-input-container">
+                        <label for="name" class="mobile-input-inline-label">Pangalan</label>
+                        <div class="mobile-input-row">
+                            <input type="text" id="name" name="name" class="mobile-input-field"
+                                placeholder="Pangalan" autocomplete="name" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Field (shown when Email tab active or token has email) -->
+                <div class="form-group" id="emailFieldGroup" style="display: none;">
+                    <div class="mobile-input-container">
+                        <label for="email" class="mobile-input-inline-label">Email</label>
+                        <div class="mobile-input-row">
+                            <input type="email" id="email" name="email" class="mobile-input-field"
+                                placeholder="email@example.com" autocomplete="email" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile Field (shown when Mobile tab active or token has mobile) -->
+                <div class="form-group" id="mobileFieldGroup">
+                    <div class="mobile-input-container">
+                        <label for="mobile" class="mobile-input-inline-label">Mobile</label>
+                        <div class="mobile-input-row">
+                            <button type="button" class="country-code-selector" id="countrySelector"
+                                onclick="toggleCountryPicker()">
+                                <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag"
+                                    id="countryFlagImg" />
+                                <span class="country-code-text" id="countryCode">+63</span>
+                                <span class="country-dropdown-icon">▼</span>
+                            </button>
+                            <input type="tel" id="mobile" name="mobile" class="mobile-input-field"
+                                placeholder="917 123 4567" autocomplete="tel" required />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="form-group">
+                    <div class="mobile-input-container">
+                        <label for="password" class="mobile-input-inline-label">Gumawa ng password</label>
+                        <div class="mobile-input-row">
+                            <input type="password" id="password" name="password" class="mobile-input-field"
+                                autocomplete="new-password" required />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reminder Section (hidden on initial layout to match design) -->
+                <div class="form-reminder" style="display: none;">
+                    <span class="reminder-emoji">🎉</span>
+                    <span class="reminder-text">Paalala: Ito ang magiging account mo para makapag-login sa app</span>
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorMessage" class="error-message" role="alert"></div>
+
+                <!-- Success Message -->
+                <div id="successMessage" class="success-message" role="status"></div>
+            </form>
+
+            <!-- Button Section -->
+            <div class="button-section">
+                <button type="submit" id="submitButton" class="btn-primary" form="signupForm">
+                    Mag-sign up
+                </button>
+            </div>
+        </div>
+
+        <!-- Divider: o kaya mas mabilis -->
+        <div id="dividerSection" class="-sdividerection">
+            <span class="divider-text">— o kaya mas mabilis —</span>
+        </div>
+
         <!-- Social Auth Buttons Section -->
         <div id="socialAuthButtonsSection" class="social-auth-section">
-            <button class="auth-button" id="googleAuthButton" onclick="beginProviderSignupWithOtp('google')">
-                <img src="google-icon.svg" alt="Google" class="auth-button-icon" />
-                <span>Direktang sign-up gamit Google</span>
-            </button>
+            <p class="auth-note">💡 Diretso gamit phone account; wala nang kailangan na password:</p>
+            <div class="social-auth-buttons-row">
+                <button class="auth-button" id="googleAuthButton" onclick="beginProviderSignupWithOtp('google')">
+                    <img src="google-icon.svg" alt="Google" class="auth-button-icon" />
+                    <span>Google</span>
+                </button>
+                <button class="auth-button" id="appleAuthButton" onclick="beginProviderSignupWithOtp('apple')">
+                    <img src="apple-icon.svg" alt="Apple" class="auth-button-icon" />
+                    <span>Apple</span>
+                </button>
+            </div>
             <button class="auth-button" id="facebookAuthButton" onclick="beginProviderSignupWithOtp('facebook')" style="display: none;">
                 <img src="facebook-icon.svg" alt="Facebook" class="auth-button-icon" />
                 <span>Direktang sign-up gamit FB</span>
             </button>
-            <button class="auth-button" id="appleAuthButton" onclick="beginProviderSignupWithOtp('apple')">
-                <img src="apple-icon.svg" alt="Apple" class="auth-button-icon" />
-                <span>Direktang sign-up gamit Apple</span>
-            </button>
-            <p class="auth-note">Paalala: Ito ang magiging account mo para makapag-login sa app.</p>
         </div>
 
-        <!-- Or Divider -->
-        <div id="dividerSection" class="divider-section">
-            <div class="divider-line"></div>
-            <span class="divider-text">Or</span>
-            <div class="divider-line"></div>
-        </div>
-
-        <!-- Mobile Link Section -->
+        <!-- Mobile Link Section (shown when user clicks "Iba pang paraan" to switch to email/mobile-only flow) -->
         <div id="emailMobileLinkSection" class="email-mobile-link-section">
             <button class="email-mobile-link" onclick="showEmailMobileForm()">Gamitin email/mobile nalang</button>
         </div>
@@ -1994,104 +2106,6 @@
             <!-- Verify OTP Button -->
             <div class="button-container">
                 <button type="button" id="verifyOtpButton" class="btn-verify-otp" disabled>Verify</button>
-            </div>
-        </div>
-
-        <!-- Form Section (Initially Hidden) -->
-        <div id="formSection" class="form-section">
-            <!-- Loading State for Token Check -->
-            <div id="tokenLoadingState" class="token-loading-state" style="display: none;">
-                <div class="loading-spinner"></div>
-                <p class="loading-text">Sinusuri ang invite link...</p>
-            </div>
-
-            <!-- Token Error Message -->
-            <div id="tokenErrorMessage" class="error-message" role="alert" style="display: none;"></div>
-
-            <!-- Tab switcher: Email signup | Mobile signup (hidden when token has mobile) -->
-            <div id="signupTabBar" class="signup-tab-bar" style="display: none;">
-                <button type="button" class="signup-tab" id="signupTabMobile" data-tab="mobile" aria-selected="true">MOBILE SIGNUP</button>
-                <button type="button" class="signup-tab" id="signupTabEmail" data-tab="email" aria-selected="false">EMAIL SIGNUP</button>
-            </div>
-
-            <form id="signupForm" onsubmit="handleSignup(event)">
-                <!-- Name Field first (shown when Email tab or token present) -->
-                <div class="form-group" id="nameFieldGroup" style="display: none;">
-                    <div class="mobile-input-container">
-                        <label for="name" class="mobile-input-inline-label">Pangalan</label>
-                        <div class="mobile-input-row">
-                            <input type="text" id="name" name="name" class="mobile-input-field"
-                                placeholder="Pangalan" autocomplete="name" />
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Email Field (shown when Email tab active or token has email) -->
-                <div class="form-group" id="emailFieldGroup" style="display: none;">
-                    <div class="mobile-input-container">
-                        <label for="email" class="mobile-input-inline-label">Email</label>
-                        <div class="mobile-input-row">
-                            <input type="email" id="email" name="email" class="mobile-input-field"
-                                placeholder="email@example.com" autocomplete="email" />
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Mobile Field (shown when Mobile tab active or token has mobile) -->
-                <div class="form-group" id="mobileFieldGroup">
-                    <div class="mobile-input-container">
-                        <label for="mobile" class="mobile-input-inline-label">Mobile No.</label>
-                        <div class="mobile-input-row">
-                            <button type="button" class="country-code-selector" id="countrySelector"
-                                onclick="toggleCountryPicker()">
-                                <img src="flag-icons/ph.svg" alt="Philippines" class="mobile-input-flag"
-                                    id="countryFlagImg" />
-                                <span class="country-code-text" id="countryCode">+63</span>
-                                <span class="country-dropdown-icon">▼</span>
-                            </button>
-                            <input type="tel" id="mobile" name="mobile" class="mobile-input-field"
-                                placeholder="917 123 4567" autocomplete="tel" required />
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Password Field -->
-                <div class="form-group">
-                    <div class="mobile-input-container">
-                        <label for="password" class="mobile-input-inline-label">Gumawa ng password</label>
-                        <div class="mobile-input-row">
-                            <input type="password" id="password" name="password" class="mobile-input-field"
-                                autocomplete="new-password" required />
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Reminder Section -->
-                <div class="form-reminder">
-                    <span class="reminder-emoji">🎉</span>
-                    <span class="reminder-text">Paalala: Ito ang magiging account mo para makapag-login sa app</span>
-                </div>
-
-                <!-- Error Message -->
-                <div id="errorMessage" class="error-message" role="alert"></div>
-
-                <!-- Success Message -->
-                <div id="successMessage" class="success-message" role="status"></div>
-
-            </form>
-
-            <!-- Button Section -->
-            <div class="button-section">
-                <button type="submit" id="submitButton" class="btn-primary" form="signupForm">
-                    Sumali na
-                </button>
-                <!-- Footer -->
-                <footer class="footer">
-                    <span class="footer-text">
-                        <a href="#" class="footer-link" id="backToMainButton"
-                            onclick="showMainContent(); return false;">Iba pang paraan sa sign-up</a>
-                    </span>
-                </footer>
             </div>
         </div>
 
@@ -2358,7 +2372,7 @@
         // Update button state based on form validity and active tab (email vs mobile)
         function updateButtonState() {
             const formSection = document.getElementById('formSection');
-            if (!formSection || !formSection.classList.contains('show')) {
+            if (!formSection || formSection.classList.contains('hide')) {
                 return;
             }
 
@@ -2646,7 +2660,7 @@
                 }
                 const fullName = nameVal || (inviteTokenData && inviteTokenData.name) || 'User';
                 submitButton.disabled = true;
-                submitButton.textContent = 'Sumali na...';
+                submitButton.textContent = 'Mag-sign up...';
                 try {
                     const payload = {
                         email: emailVal,
@@ -2681,7 +2695,7 @@
                             };
                             showAlreadyRegisteredScreen(emailVal, true);
                             submitButton.disabled = false;
-                            submitButton.textContent = 'Sumali na';
+                            submitButton.textContent = 'Mag-sign up';
                             return;
                         }
                         const message = isAlreadyRegistered
@@ -2689,7 +2703,7 @@
                             : (errMsg || 'Signup failed. Please try again.');
                         showError(message);
                         submitButton.disabled = false;
-                        submitButton.textContent = 'Sumali na';
+                        submitButton.textContent = 'Mag-sign up';
                         return;
                     }
                     if (form) form.reset();
@@ -2700,7 +2714,7 @@
                     showError('May naging problema. Pakisubukan ulit.');
                 }
                 submitButton.disabled = false;
-                submitButton.textContent = 'Sumali na';
+                submitButton.textContent = 'Mag-sign up';
                 return;
             }
 
@@ -2771,7 +2785,7 @@
             
             // Reset button state
             submitButton.disabled = false;
-            submitButton.textContent = 'Sumali na';
+            submitButton.textContent = 'Mag-sign up';
 
             const formSection = document.getElementById('formSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
@@ -2784,7 +2798,7 @@
 
             // Hide form section
             if (formSection) {
-                formSection.classList.remove('show');
+                formSection.classList.add('hide');
                 formSection.style.display = 'none';
             }
 
@@ -2838,7 +2852,7 @@
             sendOtpAndShowVerification(finalFullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
 
             submitButton.disabled = false;
-            submitButton.textContent = 'Sumali na';
+            submitButton.textContent = 'Mag-sign up';
         }
 
         // Handle back button
@@ -2887,7 +2901,7 @@
             // Show form section and tab bar (Email | Mobile)
             if (formSection) {
                 formSection.style.display = 'block';
-                formSection.classList.add('show');
+                formSection.classList.remove('hide');
                 const tokenLoadingState = document.getElementById('tokenLoadingState');
                 const tokenErrorMessage = document.getElementById('tokenErrorMessage');
                 if (tokenLoadingState) tokenLoadingState.style.display = 'none';
@@ -2915,15 +2929,16 @@
             const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
 
             if (logoSection) logoSection.style.display = 'flex';
-            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'flex';
+            if (formSection) {
+                formSection.classList.remove('hide');
+                formSection.style.display = 'block';
+            }
             if (dividerSection) dividerSection.style.display = 'flex';
-            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'flex';
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'flex';
+            if (emailMobileLinkSection) emailMobileLinkSection.classList.remove('show');
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
 
             if (mobileOtpSection) mobileOtpSection.classList.remove('show');
-            if (formSection) {
-                formSection.classList.remove('show');
-                formSection.style.display = '';
-            }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
             if (successSection) successSection.classList.remove('show');
 
@@ -2967,7 +2982,7 @@
 
             if (submitButton) {
                 submitButton.disabled = true;
-                submitButton.textContent = 'Sumali na';
+                submitButton.textContent = 'Mag-sign up';
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4115,7 +4130,7 @@
                 // Show form section
                 if (formSection) {
                     formSection.style.display = 'block';
-                    formSection.classList.add('show');
+                    formSection.classList.remove('hide');
                 }
 
                 // Scroll to form
@@ -4317,7 +4332,7 @@
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
             if (formSection) {
-                formSection.classList.remove('show');
+                formSection.classList.add('hide');
                 formSection.style.display = 'none';
             }
             if (socialAuthSection) socialAuthSection.classList.remove('show');
@@ -4409,7 +4424,7 @@
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
             if (formSection) {
-                formSection.classList.remove('show');
+                formSection.classList.add('hide');
                 formSection.style.display = 'none';
             }
             if (mobileOtpSection) {
@@ -4464,7 +4479,7 @@
             if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
             if (dividerSection) dividerSection.style.display = 'none';
             if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
-            if (formSection) { formSection.classList.remove('show'); formSection.style.display = 'none'; }
+            if (formSection) { formSection.classList.add('hide'); formSection.style.display = 'none'; }
             if (mobileOtpSection) { mobileOtpSection.classList.remove('show'); mobileOtpSection.style.display = 'none'; }
             if (otpVerificationSection) { otpVerificationSection.classList.remove('show'); otpVerificationSection.style.display = 'none'; }
             if (successSection) successSection.classList.remove('show');
@@ -4481,7 +4496,7 @@
             const logoSection = document.getElementById('logoSection');
             const tabBar = document.getElementById('signupTabBar');
             if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
-            if (formSection) { formSection.style.display = 'block'; formSection.classList.add('show'); }
+            if (formSection) { formSection.style.display = 'block'; formSection.classList.remove('hide'); }
             if (logoSection) logoSection.style.display = 'flex';
             if (tabBar) tabBar.style.display = 'flex';
             pendingAlreadyRegistered = null;
