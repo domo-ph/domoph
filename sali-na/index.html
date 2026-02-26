@@ -2007,7 +2007,7 @@
         </div>
 
         <!-- Divider: o kaya mas mabilis -->
-        <div id="dividerSection" class="-sdividerection">
+        <div id="dividerSection" class="divider-section">
             <span class="divider-text">— o kaya mas mabilis —</span>
         </div>
 
@@ -2600,6 +2600,39 @@
             successMessage.textContent = '';
         }
 
+        // Restore signup form view and show error (used when OTP send fails or validation fails after hide)
+        function restoreSignupFormAfterError(message) {
+            const formSection = document.getElementById('formSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            if (formSection) {
+                formSection.classList.remove('hide');
+                formSection.style.display = 'block';
+            }
+            if (dividerSection) {
+                dividerSection.style.setProperty('display', 'flex', 'important');
+            }
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.setProperty('display', 'flex', 'important');
+            }
+            if (otpVerificationSection) {
+                otpVerificationSection.classList.remove('show');
+                otpVerificationSection.style.display = 'none';
+            }
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.remove('show');
+                mobileOtpSection.style.display = 'none';
+            }
+            showError(message);
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Mag-sign up';
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         // Tab switcher: show/hide email vs mobile fields
         function switchSignupTab(tab) {
             signupMode = tab;
@@ -2724,7 +2757,7 @@
             }
 
             // Mobile tab: existing mobile + OTP flow
-            const identifier = mobileInput.value.trim();
+            const identifier = (mobileInput && mobileInput.value) ? mobileInput.value.trim() : '';
             if (!identifier) {
                 showError('Please fill in all required fields (mobile and password)');
                 return;
@@ -2809,21 +2842,19 @@
                 formSection.style.display = 'none';
             }
 
-            // Also hide divider and social auth buttons immediately so they don't flash
+            // Also hide divider and social auth buttons immediately so they don't flash (important for browser compatibility)
             if (dividerSection) {
-                dividerSection.style.display = 'none';
+                dividerSection.style.setProperty('display', 'none', 'important');
             }
             if (socialAuthButtonsSection) {
-                socialAuthButtonsSection.style.display = 'none';
+                socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
             }
 
             // Validate mobile number and send OTP directly
             if (!validateMobile(identifier, selectedCountryCode_iso)) {
-                if (selectedCountryCode_iso === 'PH') {
-                    showError('Please enter a valid 10-digit Philippine mobile number');
-                } else {
-                    showError('Please enter a valid mobile number');
-                }
+                restoreSignupFormAfterError(selectedCountryCode_iso === 'PH'
+                    ? 'Please enter a valid 10-digit Philippine mobile number'
+                    : 'Please enter a valid mobile number');
                 return;
             }
 
@@ -2864,10 +2895,13 @@
             }
 
             // Send OTP and show verification section directly
-            sendOtpAndShowVerification(finalFullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
-
-            submitButton.disabled = false;
-            submitButton.textContent = 'Mag-sign up';
+            try {
+                await sendOtpAndShowVerification(finalFullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
+            } catch (err) {
+                console.error('Send OTP error from handleSignup:', err);
+                restoreSignupFormAfterError(err && err.message ? err.message : 'Failed to send OTP. Please try again.');
+                return;
+            }
         }
 
         // Handle back button
@@ -3378,10 +3412,10 @@
                 
                 // Hide divider and social buttons ("Diretso gamit phone account..." + Google/Apple) when showing OTP verification
                 if (dividerSection) {
-                    dividerSection.style.display = 'none';
+                    dividerSection.style.setProperty('display', 'none', 'important');
                 }
                 if (socialAuthButtonsSection) {
-                    socialAuthButtonsSection.style.display = 'none';
+                    socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
                 }
                 
                 if (otpVerificationSection) {
@@ -3443,7 +3477,12 @@
                     resendOtpButton.disabled = false;
                     resendOtpButton.textContent = 'Resend OTP';
                 }
-                showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+                // Restore signup form so user sees the error and can retry (Petal/other browser compatibility)
+                if (typeof restoreSignupFormAfterError === 'function') {
+                    restoreSignupFormAfterError(error.message || 'Failed to send OTP. Please try again.');
+                } else {
+                    showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+                }
             }
         }
 
