@@ -2795,6 +2795,8 @@
             const formSection = document.getElementById('formSection');
             const mobileOtpSection = document.getElementById('mobileOtpSection');
             const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
             const successMessageOtp = document.getElementById('successMessageOtp');
             const errorMessageOtp = document.getElementById('errorMessageOtp');
             const sendOtpButton = document.getElementById('sendOtpButton');
@@ -2805,6 +2807,14 @@
             if (formSection) {
                 formSection.classList.add('hide');
                 formSection.style.display = 'none';
+            }
+
+            // Also hide divider and social auth buttons immediately so they don't flash
+            if (dividerSection) {
+                dividerSection.style.display = 'none';
+            }
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.display = 'none';
             }
 
             // Validate mobile number and send OTP directly
