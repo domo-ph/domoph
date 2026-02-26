@@ -4113,18 +4113,17 @@
                     }
                 }
 
-                // Hide social auth elements and divider before showing form
+                // Keep logo, divider, and social buttons visible when showing form with prefill
                 const logoSection = document.getElementById('logoSection');
                 const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
                 const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
                 
                 if (logoSection) logoSection.style.display = 'flex';
-                if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'none';
+                if (socialAuthButtonsSection) socialAuthButtonsSection.style.display = 'flex';
                 if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
                 
-                // Always hide divider when showing form (especially for token with mobile)
                 if (dividerSection) {
-                    dividerSection.style.display = 'none';
+                    dividerSection.style.display = 'flex';
                 }
 
                 // Show form section
