@@ -3359,15 +3359,19 @@
                 const mobileOtpSection = document.getElementById('mobileOtpSection');
                 const otpVerificationSection = document.getElementById('otpVerificationSection');
                 const dividerSection = document.getElementById('dividerSection');
+                const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
                 
                 if (mobileOtpSection) {
                     mobileOtpSection.classList.remove('show');
                     mobileOtpSection.style.display = 'none';
                 }
                 
-                // Hide "Or" divider when showing OTP verification
+                // Hide divider and social buttons ("Diretso gamit phone account..." + Google/Apple) when showing OTP verification
                 if (dividerSection) {
                     dividerSection.style.display = 'none';
+                }
+                if (socialAuthButtonsSection) {
+                    socialAuthButtonsSection.style.display = 'none';
                 }
                 
                 if (otpVerificationSection) {
