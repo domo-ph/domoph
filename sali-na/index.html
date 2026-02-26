@@ -1929,8 +1929,8 @@
             </div>
 
             <form id="signupForm" onsubmit="handleSignup(event)">
-                <!-- Name Field (shown when Email tab or token present) -->
-                <div class="form-group" id="nameFieldGroup" style="display: none;">
+                <!-- Name Field (hidden; value still submitted from token or default) -->
+                <div class="form-group" id="nameFieldGroup" style="display: none !important;">
                     <div class="mobile-input-container">
                         <label for="name" class="mobile-input-inline-label">Pangalan</label>
                         <div class="mobile-input-row">
@@ -3733,14 +3733,16 @@
                         // Step 5: Combine the data (existing user data + new signup data)
                         const existingUserData = pendingSignupData.existingUser;
                         
-                        // Use token data if available, otherwise use existing user data or defaults
+                        // Name: hidden field value, token, or default (still submitted)
+                        const nameInput = document.getElementById('name');
+                        const nameVal = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+                        const fullName = nameVal || inviteTokenData?.name ||
+                                        existingUserData?.full_name ||
+                                        'Kas User';
                         const firstName = inviteTokenData?.name?.split(' ')[0] || 
                                          inviteTokenData?.nickname || 
                                          existingUserData?.first_name || 
                                          'Kas';
-                        const fullName = inviteTokenData?.name || 
-                                        existingUserData?.full_name || 
-                                        'Kas User';
                         const email = inviteTokenData?.email || 
                                     pendingSignupData.email;
                         
@@ -4019,10 +4021,7 @@
                         emailFieldGroup.style.setProperty('display', 'none', 'important');
                     }
                     
-                    // Show name field (pre-filled from token, read-only)
-                    if (nameFieldGroup) {
-                        nameFieldGroup.style.setProperty('display', 'block', 'important');
-                    }
+                    // Keep name field hidden; pre-fill value so it is submitted
                     if (nameInput && inviteTokenData.name) {
                         nameInput.value = inviteTokenData.name;
                         nameInput.readOnly = true; // Make read-only since it's from invite
@@ -4101,12 +4100,9 @@
                         passwordInput.readOnly = false;
                     }
 
-                    // Show email and name field groups (visibility of email vs mobile is handled by switchSignupTab)
+                    // Show email field group when email tab; name field stays hidden (value still submitted)
                     if (emailFieldGroup) {
                         emailFieldGroup.style.display = signupMode === 'email' ? 'block' : 'none';
-                    }
-                    if (nameFieldGroup) {
-                        nameFieldGroup.style.display = 'block';
                     }
                     if (mobileFieldGroup) {
                         mobileFieldGroup.style.display = signupMode === 'mobile' ? 'block' : 'none';
