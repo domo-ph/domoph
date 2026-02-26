@@ -4024,10 +4024,7 @@
                         emailFieldGroup.style.setProperty('display', 'none', 'important');
                     }
                     
-                    // Show name field (pre-filled from token, read-only)
-                    if (nameFieldGroup) {
-                        nameFieldGroup.style.setProperty('display', 'block', 'important');
-                    }
+                    // Name field stays hidden; still pre-fill for submit
                     if (nameInput && inviteTokenData.name) {
                         nameInput.value = inviteTokenData.name;
                         nameInput.readOnly = true; // Make read-only since it's from invite
@@ -4106,12 +4103,9 @@
                         passwordInput.readOnly = false;
                     }
 
-                    // Show email and name field groups (visibility of email vs mobile is handled by switchSignupTab)
+                    // Show email/mobile field groups (name field stays hidden)
                     if (emailFieldGroup) {
                         emailFieldGroup.style.display = signupMode === 'email' ? 'block' : 'none';
-                    }
-                    if (nameFieldGroup) {
-                        nameFieldGroup.style.display = 'block';
                     }
                     if (mobileFieldGroup) {
                         mobileFieldGroup.style.display = signupMode === 'mobile' ? 'block' : 'none';
