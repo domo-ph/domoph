@@ -747,6 +747,30 @@
             text-align: center;
         }
 
+        /* Token already used state: image + error message */
+        .token-already-used-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl);
+            gap: var(--spacing-m);
+            text-align: center;
+        }
+
+        .token-already-used-section .token-already-used-image {
+            max-width: 100%;
+            width: 200px;
+            height: auto;
+        }
+
+        .token-already-used-section .token-already-used-message {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--secondary-default);
+        }
+
         /* Country Picker Modal */
         .modal-overlay {
             display: none;
@@ -1926,6 +1950,12 @@
 
             <!-- Token Error Message -->
             <div id="tokenErrorMessage" class="error-message" role="alert" style="display: none;"></div>
+
+            <!-- Token already used: image + message (hidden by default) -->
+            <div id="tokenAlreadyUsedSection" class="token-already-used-section" style="display: none;">
+                <img src="questions-rafiki.svg" alt="" class="token-already-used-image" />
+                <p id="tokenAlreadyUsedMessage" class="token-already-used-message error-message" role="alert">Token already used</p>
+            </div>
 
             <!-- Tab switcher: EMAIL SIGN-UP | MOBILE SIGN-UP -->
             <div id="signupTabBar" class="signup-tab-bar">
@@ -4005,8 +4035,12 @@
 
                 if (error) {
                     console.error('Error consuming invite token:', error);
-                    showTokenError(error.message || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.');
-                    // Show form with tab bar to allow manual signup
+                    const msg = error.message || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.';
+                    if (/already\s*used/i.test(msg)) {
+                        showTokenAlreadyUsed();
+                        return;
+                    }
+                    showTokenError(msg);
                     if (formSection) {
                         formSection.style.display = 'block';
                         const tabBar = document.getElementById('signupTabBar');
@@ -4019,8 +4053,11 @@
 
                 if (!data || !data.success) {
                     const errorMsg = data?.error || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.';
+                    if (/already\s*used/i.test(errorMsg)) {
+                        showTokenAlreadyUsed();
+                        return;
+                    }
                     showTokenError(errorMsg);
-                    // Show form with tab bar to allow manual signup
                     if (formSection) {
                         formSection.style.display = 'block';
                         const tabBar = document.getElementById('signupTabBar');
@@ -4212,6 +4249,39 @@
                 tokenErrorMessage.style.display = 'block';
                 tokenErrorMessage.classList.add('show');
             }
+        }
+
+        function showTokenAlreadyUsed() {
+            hideTokenLoading();
+            const formSection = document.getElementById('formSection');
+            const tokenLoadingState = document.getElementById('tokenLoadingState');
+            const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+            const tokenAlreadyUsedSection = document.getElementById('tokenAlreadyUsedSection');
+            const signupTabBar = document.getElementById('signupTabBar');
+            const signupForm = document.getElementById('signupForm');
+            const buttonSection = formSection && formSection.querySelector('.button-section');
+            const dividerSection = document.getElementById('dividerSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+
+            if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+            if (tokenErrorMessage) {
+                tokenErrorMessage.style.display = 'none';
+                tokenErrorMessage.textContent = '';
+            }
+            if (signupTabBar) signupTabBar.style.display = 'none';
+            if (signupForm) signupForm.style.display = 'none';
+            if (buttonSection) buttonSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.setProperty('display', 'none', 'important');
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
+
+            if (formSection) {
+                formSection.classList.remove('hide');
+                formSection.style.display = 'block';
+            }
+            if (tokenAlreadyUsedSection) {
+                tokenAlreadyUsedSection.style.display = 'flex';
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Store original button texts
