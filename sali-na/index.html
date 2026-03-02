@@ -759,16 +759,17 @@
         }
 
         .token-already-used-section .token-already-used-image {
-            max-width: 100%;
-            width: 200px;
+            max-width: min(320px, 90vw);
+            width: 320px;
             height: auto;
         }
 
         .token-already-used-section .token-already-used-message {
+            display: block;
             margin: 0;
-            font-size: 16px;
-            font-weight: 500;
-            color: var(--secondary-default);
+            font-size: 18px;
+            font-weight: 600;
+            color: #FFFFFF;
         }
 
         /* Country Picker Modal */
@@ -1940,8 +1941,8 @@
             <h1 class="logo-title">Sali na sa Domo!</h1>
         </div>
 
-        <!-- Form Section (visible on load: tabs + mobile/password + Mag-sign up) -->
-        <div id="formSection" class="form-section">
+        <!-- Form Section (hidden until data is processed; then show appropriate content) -->
+        <div id="formSection" class="form-section" style="display: none;">
             <!-- Loading State for Token Check -->
             <div id="tokenLoadingState" class="token-loading-state" style="display: none;">
                 <div class="loading-spinner"></div>
@@ -1954,7 +1955,13 @@
             <!-- Token already used: image + message (hidden by default) -->
             <div id="tokenAlreadyUsedSection" class="token-already-used-section" style="display: none;">
                 <img src="questions-rafiki.svg" alt="" class="token-already-used-image" />
-                <p id="tokenAlreadyUsedMessage" class="token-already-used-message error-message" role="alert">Token already used</p>
+                <p id="tokenAlreadyUsedMessage" class="token-already-used-message" role="alert">Nagamit na ang token na ito. Makipag-ugnayan sa iyong Amo</p>
+            </div>
+
+            <!-- No invite token: same image, different message (hidden by default) -->
+            <div id="noInviteTokenSection" class="token-already-used-section" style="display: none;">
+                <img src="questions-rafiki.svg" alt="" class="token-already-used-image" />
+                <p id="noInviteTokenMessage" class="token-already-used-message" role="alert">Walang invite token. Makipag-ugnayan sa iyong Amo tungkol dito</p>
             </div>
 
             <!-- Tab switcher: EMAIL SIGN-UP | MOBILE SIGN-UP -->
@@ -2036,13 +2043,13 @@
             </div>
         </div>
 
-        <!-- Divider: o kaya mas mabilis -->
-        <div id="dividerSection" class="divider-section">
+        <!-- Divider: o kaya mas mabilis (hidden until form is shown) -->
+        <div id="dividerSection" class="divider-section" style="display: none;">
             <span class="divider-text">— o kaya mas mabilis —</span>
         </div>
 
-        <!-- Social Auth Buttons Section -->
-        <div id="socialAuthButtonsSection" class="social-auth-section">
+        <!-- Social Auth Buttons Section (hidden until form is shown) -->
+        <div id="socialAuthButtonsSection" class="social-auth-section" style="display: none;">
             <p class="auth-note">💡 Diretso gamit phone account; wala nang kailangan na password:</p>
             <div class="social-auth-buttons-row">
                 <button class="auth-button" id="googleAuthButton" onclick="beginProviderSignupWithOtp('google')">
@@ -3994,25 +4001,32 @@
             const token = searchParams.get('t');
             
             if (!token) {
-                // No token, proceed with normal signup
+                // No token: show same image as "token already used" with no-invite-token message
+                showNoInviteToken();
                 return;
             }
 
-            // Show loading state
+            // Token present: show form section with only loading state visible
             const tokenLoadingState = document.getElementById('tokenLoadingState');
             const tokenErrorMessage = document.getElementById('tokenErrorMessage');
             const formSection = document.getElementById('formSection');
-            
-            if (tokenLoadingState) {
-                tokenLoadingState.style.display = 'flex';
-            }
+            const signupTabBar = document.getElementById('signupTabBar');
+            const signupForm = document.getElementById('signupForm');
+            const tokenAlreadyUsedSection = document.getElementById('tokenAlreadyUsedSection');
+            const noInviteTokenSection = document.getElementById('noInviteTokenSection');
+            const buttonSection = formSection && formSection.querySelector('.button-section');
+
+            if (formSection) formSection.style.display = 'block';
+            if (tokenLoadingState) tokenLoadingState.style.display = 'flex';
             if (tokenErrorMessage) {
                 tokenErrorMessage.style.display = 'none';
                 tokenErrorMessage.textContent = '';
             }
-            if (formSection) {
-                formSection.style.display = 'none';
-            }
+            if (tokenAlreadyUsedSection) tokenAlreadyUsedSection.style.display = 'none';
+            if (noInviteTokenSection) noInviteTokenSection.style.display = 'none';
+            if (signupTabBar) signupTabBar.style.display = 'none';
+            if (signupForm) signupForm.style.display = 'none';
+            if (buttonSection) buttonSection.style.display = 'none';
 
             // Initialize Supabase client if needed
             if (!supabaseClient) {
@@ -4022,6 +4036,16 @@
             if (!supabaseClient) {
                 hideTokenLoading();
                 showTokenError('Hindi ma-initialize ang connection. Pakisubukan ulit.');
+                if (formSection) {
+                    if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+                    if (signupForm) signupForm.style.display = 'block';
+                    if (buttonSection) buttonSection.style.display = 'block';
+                    if (signupTabBar) {
+                        signupTabBar.style.display = 'flex';
+                        signupMode = 'mobile';
+                        switchSignupTab('mobile');
+                    }
+                }
                 return;
             }
 
@@ -4043,6 +4067,9 @@
                     showTokenError(msg);
                     if (formSection) {
                         formSection.style.display = 'block';
+                        if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+                        if (signupForm) signupForm.style.display = 'block';
+                        if (buttonSection) buttonSection.style.display = 'block';
                         const tabBar = document.getElementById('signupTabBar');
                         if (tabBar) tabBar.style.display = 'flex';
                         signupMode = 'mobile';
@@ -4060,6 +4087,9 @@
                     showTokenError(errorMsg);
                     if (formSection) {
                         formSection.style.display = 'block';
+                        if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+                        if (signupForm) signupForm.style.display = 'block';
+                        if (buttonSection) buttonSection.style.display = 'block';
                         const tabBar = document.getElementById('signupTabBar');
                         if (tabBar) tabBar.style.display = 'flex';
                         signupMode = 'mobile';
@@ -4068,7 +4098,12 @@
                     return;
                 }
 
-                // Success: Pre-fill fields and configure form
+                // Success: Pre-fill fields and configure form (show form content, hide loading)
+                if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+                if (signupForm) signupForm.style.display = 'block';
+                if (buttonSection) buttonSection.style.display = 'block';
+                if (signupTabBar) signupTabBar.style.display = 'flex';
+
                 const tokenMobile = data.data?.mobile || null;
                 const hasMobile = !!tokenMobile;
                 
@@ -4102,7 +4137,6 @@
 
                 const backToMainButton = document.getElementById('backToMainButton');
                 const dividerSection = document.getElementById('dividerSection');
-                const signupTabBar = document.getElementById('signupTabBar');
                 const mobileFieldGroup = document.getElementById('mobileFieldGroup');
 
                 // If token has mobile number, show name + mobile + password fields (no tabs)
@@ -4229,8 +4263,21 @@
                 hideTokenLoading();
                 showTokenError('May naging problema sa pag-process ng invite link. Pwede ka pa ring mag-signup manually.');
                 // Show form to allow manual signup
+                const formSection = document.getElementById('formSection');
+                const tokenLoadingState = document.getElementById('tokenLoadingState');
+                const signupForm = document.getElementById('signupForm');
+                const buttonSection = formSection && formSection.querySelector('.button-section');
+                const tabBar = document.getElementById('signupTabBar');
                 if (formSection) {
                     formSection.style.display = 'block';
+                    if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+                    if (signupForm) signupForm.style.display = 'block';
+                    if (buttonSection) buttonSection.style.display = 'block';
+                    if (tabBar) {
+                        tabBar.style.display = 'flex';
+                        signupMode = 'mobile';
+                        switchSignupTab('mobile');
+                    }
                 }
             }
         }
@@ -4257,6 +4304,7 @@
             const tokenLoadingState = document.getElementById('tokenLoadingState');
             const tokenErrorMessage = document.getElementById('tokenErrorMessage');
             const tokenAlreadyUsedSection = document.getElementById('tokenAlreadyUsedSection');
+            const noInviteTokenSection = document.getElementById('noInviteTokenSection');
             const signupTabBar = document.getElementById('signupTabBar');
             const signupForm = document.getElementById('signupForm');
             const buttonSection = formSection && formSection.querySelector('.button-section');
@@ -4264,6 +4312,7 @@
             const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
 
             if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+            if (noInviteTokenSection) noInviteTokenSection.style.display = 'none';
             if (tokenErrorMessage) {
                 tokenErrorMessage.style.display = 'none';
                 tokenErrorMessage.textContent = '';
@@ -4280,6 +4329,40 @@
             }
             if (tokenAlreadyUsedSection) {
                 tokenAlreadyUsedSection.style.display = 'flex';
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showNoInviteToken() {
+            const formSection = document.getElementById('formSection');
+            const tokenLoadingState = document.getElementById('tokenLoadingState');
+            const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+            const tokenAlreadyUsedSection = document.getElementById('tokenAlreadyUsedSection');
+            const noInviteTokenSection = document.getElementById('noInviteTokenSection');
+            const signupTabBar = document.getElementById('signupTabBar');
+            const signupForm = document.getElementById('signupForm');
+            const buttonSection = formSection && formSection.querySelector('.button-section');
+            const dividerSection = document.getElementById('dividerSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+
+            if (tokenLoadingState) tokenLoadingState.style.display = 'none';
+            if (tokenErrorMessage) {
+                tokenErrorMessage.style.display = 'none';
+                tokenErrorMessage.textContent = '';
+            }
+            if (tokenAlreadyUsedSection) tokenAlreadyUsedSection.style.display = 'none';
+            if (signupTabBar) signupTabBar.style.display = 'none';
+            if (signupForm) signupForm.style.display = 'none';
+            if (buttonSection) buttonSection.style.display = 'none';
+            if (dividerSection) dividerSection.style.setProperty('display', 'none', 'important');
+            if (socialAuthButtonsSection) socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
+
+            if (formSection) {
+                formSection.classList.remove('hide');
+                formSection.style.display = 'block';
+            }
+            if (noInviteTokenSection) {
+                noInviteTokenSection.style.display = 'flex';
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
