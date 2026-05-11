@@ -884,6 +884,28 @@
             width: 100%;
         }
 
+        .success-clipboard-error {
+            display: none;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 17px;
+            color: #b45309;
+            background: rgba(180, 83, 9, 0.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: left;
+        }
+
+        .success-clipboard-error.show {
+            display: block;
+        }
+
+        .success-handoff-platform-note {
+            margin-top: 10px;
+        }
+
         /* Already Registered Section ("Kamusta? Ikaw ba 'to?") */
         .already-registered-section {
             display: none;
@@ -2200,17 +2222,27 @@
                     <img src="social-auth-icon.svg" alt="Success" class="success-icon" />
                 </div>
                 <div class="success-text-container">
-                    <h2 class="success-title">Nakaregister na tayo!</h2>
-                    <p class="success-description">
+                    <h2 class="success-title" id="successTitleDefault">Nakaregister na tayo!</h2>
+                    <h2 class="success-title" id="successTitleHandoff" style="display: none;">Success! Download the app</h2>
+                    <p class="success-description" id="successCopyDefault">
                         Susunod, i-dadownload natin ang app sa App Store.<br><br>
                         Saglit lang at i-reredirect kita sa download sa loob ng 5 segundo. Para pumunta agad, mag-tap lang sa button sa baba.
                     </p>
+                    <div id="successCopyHandoff" class="success-description" style="display: none;">
+                        <p>
+                            You are all set. Use the right store for your phone: Google Play uses install attribution to pass your session handoff automatically. On iPhone, when you tap <strong>Download on the App Store</strong>, we copy a short handoff code to your clipboard first, then open the App Store.
+                        </p>
+                        <p class="success-handoff-platform-note">
+                            <strong>iPhone:</strong> After tapping Install, switch to the Domo app and sign in; the app reads the clipboard once to complete handoff. If copy was blocked, open the App Store from the button again or paste manually if the app asks.
+                        </p>
+                    </div>
+                    <div id="successClipboardError" class="success-clipboard-error" role="alert" aria-live="polite"></div>
                     <div class="app-store-buttons">
-                        <a href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank"
+                        <a id="successPlayLink" href="https://play.google.com/store/apps/details?id=com.domohousehold" target="_blank"
                             rel="noopener noreferrer" class="app-store-link android-only">
                             <img src="google-play-button.png" alt="Get it on Google Play" class="app-store-button" />
                         </a>
-                        <a href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375"
+                        <a id="successIosLink" href="https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375"
                             target="_blank" rel="noopener noreferrer" class="app-store-link">
                             <img src="app-store-button.png" alt="Download on App Store" class="app-store-button" />
                         </a>
@@ -2285,6 +2317,133 @@
         const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
         const CHECK_STAFF_INVITE_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/check-staff-invite';
         const VALIDATE_MOBILE_NUMBER_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/validate-mobile-number';
+
+        const INSTALL_APP_STORE_URL = 'https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375';
+        const INSTALL_PLAY_APP_ID = 'com.domohousehold';
+        const INSTALL_PLAY_DETAILS_BASE = 'https://play.google.com/store/apps/details?id=' + INSTALL_PLAY_APP_ID;
+
+        /** Optional 64-char hex from signup-user for Play install referrer + iOS clipboard handoff. */
+        let signupHandoffToken = null;
+
+        function isValidHandoffToken(value) {
+            return typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value.trim());
+        }
+
+        /**
+         * @param {object|null|undefined} data Parsed signup-user JSON body
+         * @param {{ mergeOnly?: boolean }} [opts] mergeOnly: only set when token present (OAuth / async paths)
+         */
+        function ingestHandoffTokenFromSignupResponse(data, opts) {
+            const mergeOnly = !!(opts && opts.mergeOnly);
+            if (data && isValidHandoffToken(data.handoff_token)) {
+                signupHandoffToken = data.handoff_token.trim();
+                return;
+            }
+            if (!mergeOnly) {
+                signupHandoffToken = null;
+            }
+        }
+
+        function buildPlayStoreUrlWithHandoffReferrer(token) {
+            var referrerPayload = 'utm_source=domo&handoff=' + token;
+            return INSTALL_PLAY_DETAILS_BASE + '&referrer=' + encodeURIComponent(referrerPayload);
+        }
+
+        function copyHandoffToClipboardWithFallback(clipText) {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                return navigator.clipboard.writeText(clipText);
+            }
+            return new Promise(function (resolve, reject) {
+                try {
+                    var ta = document.createElement('textarea');
+                    ta.value = clipText;
+                    ta.setAttribute('readonly', '');
+                    ta.style.position = 'fixed';
+                    ta.style.left = '-9999px';
+                    ta.style.top = '0';
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    var ok = document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    if (ok) {
+                        resolve();
+                    } else {
+                        reject(new Error('execCommand copy failed'));
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+
+        function refreshSuccessInstallHandoffUi() {
+            var playLink = document.getElementById('successPlayLink');
+            var iosLink = document.getElementById('successIosLink');
+            var titleDefault = document.getElementById('successTitleDefault');
+            var titleHandoff = document.getElementById('successTitleHandoff');
+            var copyDefault = document.getElementById('successCopyDefault');
+            var copyHandoff = document.getElementById('successCopyHandoff');
+            var clipboardErrorEl = document.getElementById('successClipboardError');
+
+            var has = !!signupHandoffToken;
+            if (clipboardErrorEl) {
+                clipboardErrorEl.classList.remove('show');
+                clipboardErrorEl.textContent = '';
+            }
+
+            if (titleDefault) {
+                titleDefault.style.display = has ? 'none' : '';
+            }
+            if (titleHandoff) {
+                titleHandoff.style.display = has ? '' : 'none';
+            }
+            if (copyDefault) {
+                copyDefault.style.display = has ? 'none' : '';
+            }
+            if (copyHandoff) {
+                copyHandoff.style.display = has ? '' : 'none';
+            }
+
+            if (playLink) {
+                playLink.href = has ? buildPlayStoreUrlWithHandoffReferrer(signupHandoffToken) : INSTALL_PLAY_DETAILS_BASE;
+            }
+
+            if (iosLink) {
+                iosLink.href = INSTALL_APP_STORE_URL;
+                if (has) {
+                    iosLink.onclick = function (e) {
+                        e.preventDefault();
+                        var token = signupHandoffToken;
+                        if (!token) {
+                            window.location.href = INSTALL_APP_STORE_URL;
+                            return;
+                        }
+                        var clipText = 'domo-handoff:' + token;
+                        var showClipErr = function () {
+                            if (clipboardErrorEl) {
+                                clipboardErrorEl.textContent = 'We could not copy the handoff code automatically. You can still open the App Store; the app may ask you to paste the code from Domo if needed.';
+                                clipboardErrorEl.classList.add('show');
+                            }
+                        };
+                        copyHandoffToClipboardWithFallback(clipText).then(function () {
+                            window.location.href = INSTALL_APP_STORE_URL;
+                        }).catch(function () {
+                            showClipErr();
+                            window.setTimeout(function () {
+                                window.location.href = INSTALL_APP_STORE_URL;
+                            }, 900);
+                        });
+                    };
+                } else {
+                    iosLink.onclick = null;
+                }
+            }
+        }
+
+        function hasSignupHandoff() {
+            return !!signupHandoffToken;
+        }
 
         try { console.log('Signup script initialized'); } catch (_) { }
 
@@ -2722,6 +2881,7 @@
             event.preventDefault();
             hideError();
             hideSuccess();
+            signupHandoffToken = null;
 
             const password = passwordInput.value.trim();
             if (!password) {
@@ -2798,6 +2958,7 @@
                     }
                     if (form) form.reset();
                     pendingSignupData = null;
+                    ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                     showSuccessScreen();
                 } catch (err) {
                     console.error('Email signup error:', err);
@@ -3818,15 +3979,16 @@
                             body: JSON.stringify(oauthPayload),
                         });
 
+                        const linkResult = await linkMobileResponse.json().catch(() => ({}));
+
                         // Handle response - 409 means user already exists
                         // Backend should check staff_invite table and link household if found
                         if (!linkMobileResponse.ok && linkMobileResponse.status !== 409) {
-                            const result = await linkMobileResponse.json().catch(() => ({}));
-                            const errorMsg = result.error || result.message || 'Failed to link mobile number';
-                            
+                            const errorMsg = linkResult.error || linkResult.message || 'Failed to link mobile number';
+
                             // Log error for debugging
                             console.warn('Link mobile endpoint returned error:', errorMsg);
-                            
+
                             // Only throw if it's a critical error (not user already exists)
                             if (linkMobileResponse.status !== 400 && linkMobileResponse.status !== 409) {
                                 throw new Error(errorMsg);
@@ -3835,6 +3997,7 @@
 
                         // Check if we got a successful response or 409 (user exists but might be linking invite)
                         if (linkMobileResponse.ok || linkMobileResponse.status === 409) {
+                            ingestHandoffTokenFromSignupResponse(linkResult, { mergeOnly: true });
                             console.log('Mobile number linked successfully (or user already exists with staff invite)');
                         }
                         return { success: true };
@@ -3913,10 +4076,7 @@
                             throw new Error(data.error || data.message || `Signup failed: ${signupResponse.status}`);
                         }
 
-                        console.log('Signup inputs captured:', {
-                            ...pendingSignupData,
-                            otp
-                        });
+                        ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                         pendingSignupData = null;
                         return data;
                     } else {
@@ -4669,14 +4829,19 @@
             // Show success section
             if (successSection) {
                 successSection.classList.add('show');
+                refreshSuccessInstallHandoffUi();
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 // Attempt to focus the success title for accessibility
-                const titleEl = successSection.querySelector('.success-title');
-                if (titleEl) {
-                    titleEl.setAttribute('tabindex', '-1');
-                    try { titleEl.focus(); } catch (e) { }
+                var titleFocus = hasSignupHandoff()
+                    ? document.getElementById('successTitleHandoff')
+                    : document.getElementById('successTitleDefault');
+                if (titleFocus) {
+                    titleFocus.setAttribute('tabindex', '-1');
+                    try { titleFocus.focus(); } catch (e) { }
                 }
+            } else {
+                refreshSuccessInstallHandoffUi();
             }
         }
 
@@ -4750,6 +4915,7 @@
                     return;
                 }
                 pendingAlreadyRegistered = null;
+                ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                 showSuccessScreen();
             } catch (e) {
                 console.error('Ako yan / link error:', e);
@@ -4784,9 +4950,13 @@
         function redirectToStore() {
             const device = detectDevice();
             if (device === 'ios') {
-                window.location.replace('https://apps.apple.com/app/domo');
+                window.location.replace(INSTALL_APP_STORE_URL);
             } else if (device === 'android') {
-                window.location.replace('https://play.google.com/store/apps/details?id=com.domohousehold');
+                window.location.replace(
+                    signupHandoffToken
+                        ? buildPlayStoreUrlWithHandoffReferrer(signupHandoffToken)
+                        : INSTALL_PLAY_DETAILS_BASE
+                );
             } else {
                 // Desktop fallback - redirect to main landing page
                 window.location.replace('index.html');
@@ -4998,6 +5168,7 @@
                 .then(() => {
                     sessionStorage.setItem('oauthSignupCompleted', '1');
                     clearInviteTokenDataAfterOAuth();
+                    refreshSuccessInstallHandoffUi();
                 })
                 .catch((e) => {
                     console.warn('signup-user failed:', e);
@@ -5067,10 +5238,12 @@
                 body: JSON.stringify(oauthPayload),
             });
 
-            if (res.ok || res.status === 409) return;
-
-            const data = await res.json().catch(() => ({}));
-            const errMsg = data.error || data.message || `Signup failed: ${res.status}`;
+            const signupUserBody = await res.json().catch(() => ({}));
+            if (res.ok || res.status === 409) {
+                ingestHandoffTokenFromSignupResponse(signupUserBody, { mergeOnly: true });
+                return;
+            }
+            const errMsg = signupUserBody.error || signupUserBody.message || `Signup failed: ${res.status}`;
             throw new Error(errMsg);
         }
 
