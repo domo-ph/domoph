@@ -15,6 +15,18 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function generateHandoffTokenPlain(): string {
+    const bytes = new Uint8Array(32)
+    crypto.getRandomValues(bytes)
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function sha256HexUtf8(plain: string): Promise<string> {
+    const dataBuf = new TextEncoder().encode(plain)
+    const hashBuf = await crypto.subtle.digest('SHA-256', dataBuf)
+    return Array.from(new Uint8Array(hashBuf), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 /** Migrate household_members from pending user to signed-up user (RPC may not include this). */
 async function migratePendingUserHouseholdMembers(
     supabaseAdmin: ReturnType<typeof createClient>,
@@ -781,6 +793,39 @@ serve(async (req) => {
             }
         }
 
+        // Phase 2: mint a single-use (~24h) handoff token for kas staff-invite signups
+        let handoffTokenPlain: string | null = null
+        if (staffInviteFound && userRole === 'kasambahay') {
+            try {
+                const plain = generateHandoffTokenPlain()
+                const hashHex = await sha256HexUtf8(plain)
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+                const rawInviteId = (staffInviteFound as { id?: unknown })?.id
+                const staffInviteNumeric =
+                    typeof rawInviteId === 'bigint'
+                        ? Number(rawInviteId)
+                        : typeof rawInviteId === 'number'
+                            ? rawInviteId
+                            : parseInt(String(rawInviteId), 10)
+
+                const { error: hoErr } = await supabaseAdmin.from('mobile_install_handoff').insert({
+                    handoff_token_hash: hashHex,
+                    auth_user_id: authData.user.id,
+                    staff_invite_id: Number.isFinite(staffInviteNumeric) ? staffInviteNumeric : null,
+                    expires_at: expiresAt,
+                })
+
+                if (hoErr) {
+                    console.error('[SIGNUP] mobile_install_handoff insert failed:', hoErr)
+                } else {
+                    handoffTokenPlain = plain
+                }
+            } catch (hoCatch) {
+                console.error('[SIGNUP] handoff mint exception:', hoCatch)
+            }
+        }
+
         // Return success response
         return new Response(
             JSON.stringify({
@@ -790,6 +835,8 @@ serve(async (req) => {
                 message: userRole === 'kasambahay'
                     ? 'Account created successfully. Welcome, kasambahay!'
                     : 'Account created successfully. Welcome!'
+                ,
+                ...(handoffTokenPlain ? { handoff_token: handoffTokenPlain } : {})
             }),
             { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )

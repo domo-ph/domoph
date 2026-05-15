@@ -2313,10 +2313,12 @@
 
         // Supabase Edge Function endpoints
         const SIGNUP_ENDPOINT = `${SUPABASE_URL}/functions/v1/signup-user`;
-        const SEND_VERIFICATION_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/send-verification-code`;
+        const REQUEST_VERIFICATION_CODE_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/request-verification-code';
         const VERIFY_CODE_ENDPOINT = `${SUPABASE_URL}/functions/v1/verify-code`;
         const CHECK_STAFF_INVITE_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/check-staff-invite';
-        const VALIDATE_MOBILE_NUMBER_ENDPOINT = 'https://vampznzoubbljcdadzoo.supabase.co/functions/v1/validate-mobile-number';
+
+        /** 'signup' = email/mobile form flow; 'mobile' = mobile OTP section or resend */
+        let otpSendSource = 'mobile';
 
         const INSTALL_APP_STORE_URL = 'https://apps.apple.com/ph/app/domo-household-manage-helpers/id6742123375';
         const INSTALL_PLAY_APP_ID = 'com.domohousehold';
@@ -2558,14 +2560,98 @@
             return digits.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
         }
 
-        function validateMobile(mobile, countryCode) {
-            const digits = mobile.replace(/\D/g, '');
-            if (countryCode === 'PH') {
-                // Philippines: should be 10 digits after removing leading zero
-                const processedDigits = digits.replace(/^0+/, '');
-                return processedDigits.length === 10;
+        function getCallingCodeForIso(countryIso) {
+            const country = countries.find((c) => c.code === countryIso);
+            return country ? country.callingCode : selectedCountryCode;
+        }
+
+        function looksLikeNumberWithCountryCode(digits, codeDigits, countryIso) {
+            if (!codeDigits || !digits.startsWith(codeDigits)) return false;
+            if (countryIso === 'PH') {
+                // +63 + 10-digit local, or +63 + 0 + 10-digit local
+                return digits.length >= 12;
             }
-            // For other countries, E.164 light check: 5-15 digits
+            return digits.length > codeDigits.length + 4;
+        }
+
+        /** Strip country code / intl prefix so the field holds local digits only. */
+        function extractLocalMobileDigits(value, countryIso, callingCode, options = {}) {
+            const { forceStripCallingCode = false } = options;
+            const raw = String(value || '').trim();
+            let digits = raw.replace(/\D/g, '');
+            if (!digits) return '';
+
+            const hasInternationalMarker = raw.startsWith('+') || digits.startsWith('00');
+            if (digits.startsWith('00')) {
+                digits = digits.slice(2);
+            }
+
+            const codeDigits = (callingCode || '').replace(/\D/g, '');
+            const shouldStripCallingCode = forceStripCallingCode || hasInternationalMarker ||
+                looksLikeNumberWithCountryCode(digits, codeDigits, countryIso);
+
+            if (shouldStripCallingCode && codeDigits &&
+                digits.startsWith(codeDigits) && digits.length > codeDigits.length) {
+                digits = digits.slice(codeDigits.length);
+            }
+
+            if (countryIso === 'PH') {
+                digits = digits.replace(/^0+/, '');
+            }
+
+            return digits;
+        }
+
+        function sanitizeMobileInputField(inputEl, onAfterSanitize, options = {}) {
+            if (!inputEl || inputEl.readOnly) return;
+            const before = inputEl.value;
+            const localDigits = extractLocalMobileDigits(
+                before, selectedCountryCode_iso, selectedCountryCode, options
+            );
+            const isFocused = document.activeElement === inputEl;
+            const newValue = isFocused
+                ? localDigits
+                : (localDigits ? formatLocalForDisplay(localDigits, selectedCountryCode_iso) : '');
+            if (newValue !== before) {
+                inputEl.value = newValue;
+                if (onAfterSanitize) onAfterSanitize();
+            }
+        }
+
+        function attachMobileInputSanitizers(inputEl, onAfterSanitize) {
+            if (!inputEl || inputEl.dataset.mobileSanitizeBound === '1') return;
+            inputEl.dataset.mobileSanitizeBound = '1';
+
+            const runSanitize = (opts) => sanitizeMobileInputField(inputEl, onAfterSanitize, opts);
+
+            inputEl.addEventListener('input', () => runSanitize());
+            inputEl.addEventListener('paste', () => {
+                setTimeout(() => runSanitize({ forceStripCallingCode: true }), 0);
+            });
+            inputEl.addEventListener('change', () => {
+                runSanitize({ forceStripCallingCode: true });
+            });
+            inputEl.addEventListener('blur', () => {
+                const val = inputEl.value;
+                if (!val) return;
+                const local = extractLocalMobileDigits(val, selectedCountryCode_iso, selectedCountryCode);
+                inputEl.value = formatLocalForDisplay(local, selectedCountryCode_iso);
+                if (onAfterSanitize) onAfterSanitize();
+            });
+            inputEl.addEventListener('focus', () => {
+                inputEl.value = extractLocalMobileDigits(
+                    inputEl.value || '', selectedCountryCode_iso, selectedCountryCode
+                );
+            });
+        }
+
+        function validateMobile(mobile, countryIso) {
+            const digits = extractLocalMobileDigits(
+                mobile, countryIso, getCallingCodeForIso(countryIso)
+            );
+            if (countryIso === 'PH') {
+                return digits.length === 10;
+            }
             return digits.length >= 5 && digits.length <= 15;
         }
 
@@ -2623,18 +2709,8 @@
         const nameInputForState = document.getElementById('name');
         if (emailInputForState) emailInputForState.addEventListener('input', updateButtonState);
         if (nameInputForState) nameInputForState.addEventListener('input', updateButtonState);
-        // Masking handlers for the mobile field
         if (mobileInput) {
-            mobileInput.addEventListener('blur', () => {
-                const val = mobileInput.value;
-                if (!val) return;
-                mobileInput.value = formatLocalForDisplay(val, selectedCountryCode_iso);
-            });
-            mobileInput.addEventListener('focus', () => {
-                // unmask to raw digits for easier editing
-                const val = mobileInput.value || '';
-                mobileInput.value = val.replace(/\D/g, '');
-            });
+            attachMobileInputSanitizers(mobileInput, updateButtonState);
         }
 
         // Fallback event delegation for country selector (ensures click works)
@@ -2700,6 +2776,13 @@
             }
 
             closeCountryModal();
+            if (mobileInput) {
+                sanitizeMobileInputField(mobileInput, updateButtonState, { forceStripCallingCode: true });
+            }
+            const mobileOtpInputEl = document.getElementById('mobileOtpInput');
+            if (mobileOtpInputEl) {
+                sanitizeMobileInputField(mobileOtpInputEl, updateMobileOtpSendButton, { forceStripCallingCode: true });
+            }
             updateButtonState();
         }
 
@@ -2986,11 +3069,9 @@
             let staffInvite = null;
             let existingUser = null;
             
-            // Normalize mobile number
-            let mobileDigits = identifier.replace(/\D/g, '');
-            if (selectedCountryCode_iso === 'PH') {
-                mobileDigits = mobileDigits.replace(/^0+/, '');
-            }
+            const mobileDigits = extractLocalMobileDigits(
+                identifier, selectedCountryCode_iso, selectedCountryCode
+            );
             const initialFullMobileNumber = selectedCountryCode + mobileDigits;
             const normalizedMobile = normalizePhone(initialFullMobileNumber);
             
@@ -3088,6 +3169,11 @@
                 existingUser: existingUser // Include existing user data
             };
 
+            // Manual signup: clear orphan OAuth session so OTP verify uses email/password path
+            if (supabaseClient) {
+                supabaseClient.auth.signOut().catch(() => {});
+            }
+
             submitButton.disabled = true;
             submitButton.textContent = 'Sending OTP...';
 
@@ -3109,6 +3195,7 @@
 
             // Send OTP and show verification section directly
             try {
+                otpSendSource = 'signup';
                 await sendOtpAndShowVerification(finalFullMobileNumber, mobileDigits, selectedCountryCode, selectedCountryCode_iso);
             } catch (err) {
                 console.error('Send OTP error from handleSignup:', err);
@@ -3251,6 +3338,17 @@
         }
         window.showMainContent = showMainContent;
 
+        function updateMobileOtpSendButton() {
+            const mobileOtpInput = document.getElementById('mobileOtpInput');
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            if (!mobileOtpInput || !sendOtpButton) return;
+            const local = extractLocalMobileDigits(
+                mobileOtpInput.value, selectedCountryCode_iso, selectedCountryCode
+            );
+            const isValid = selectedCountryCode_iso === 'PH' ? local.length === 10 : local.length >= 5;
+            sendOtpButton.disabled = !isValid;
+        }
+
         // Initialize mobile OTP functionality
         let mobileOtpInitialized = false;
         let otpInputsInitialized = false;
@@ -3265,22 +3363,8 @@
             if (!mobileOtpInitialized) {
                 mobileOtpInitialized = true;
 
-                // Mobile input validation
                 if (mobileOtpInput && sendOtpButton) {
-                    mobileOtpInput.addEventListener('input', () => {
-                        const mobile = mobileOtpInput.value.trim();
-                        const digits = mobile.replace(/\D/g, '');
-                        const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
-                        const isValid = selectedCountryCode_iso === 'PH' ? processedDigits.length === 10 : processedDigits.length >= 5;
-                        sendOtpButton.disabled = !isValid;
-                    });
-                    // Add masking on blur/focus for OTP mobile input
-                    mobileOtpInput.addEventListener('blur', () => {
-                        mobileOtpInput.value = formatLocalForDisplay(mobileOtpInput.value, selectedCountryCode_iso);
-                    });
-                    mobileOtpInput.addEventListener('focus', () => {
-                        mobileOtpInput.value = (mobileOtpInput.value || '').replace(/\D/g, '');
-                    });
+                    attachMobileInputSanitizers(mobileOtpInput, updateMobileOtpSendButton);
                 }
 
                 // Bind OTP country selector for accessibility and keyboard support
@@ -3503,49 +3587,211 @@
             }
         }
 
-        // Helper function to send OTP and transition to verification section
-        async function sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, countryIso) {
-            // Store for resend
-            currentVerifyingMobileNumber = fullMobileNumber;
+        function formatOtpDisplayMobile(mobileDigits, countryCode, countryIso) {
+            const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
+            return `${countryCode} ${displayMobile}`;
+        }
 
-            // Disable button during request
+        function setOtpInputsPending(pending) {
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+            const verifyOtpButton = document.getElementById('verifyOtpButton');
+            otpInputs.forEach(input => {
+                if (input) input.disabled = pending;
+            });
+            if (verifyOtpButton) {
+                verifyOtpButton.disabled = pending;
+            }
+        }
+
+        function showOtpVerificationUi(fullMobileNumber, mobileDigits, countryCode, countryIso, sending) {
+            const formattedMobileNumber = formatOtpDisplayMobile(mobileDigits, countryCode, countryIso);
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.remove('show');
+                mobileOtpSection.style.display = 'none';
+            }
+            if (dividerSection) {
+                dividerSection.style.setProperty('display', 'none', 'important');
+            }
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
+            }
+            if (otpVerificationSection) {
+                otpVerificationSection.classList.add('show');
+                otpVerificationSection.style.display = 'flex';
+            }
+
+            const instructionText = document.getElementById('otpInstructionText');
+            if (instructionText) {
+                instructionText.textContent = sending
+                    ? `Nagpapadala ng OTP sa ${formattedMobileNumber}...`
+                    : `Nag-send kami ng OTP sa ${formattedMobileNumber}. Ilagay lang sa taas para ma-verify ang number mo.`;
+            }
+
+            const errorMessageOtpVerify = document.getElementById('errorMessageOtpVerify');
+            const successMessageOtpVerify = document.getElementById('successMessageOtpVerify');
+            if (errorMessageOtpVerify) {
+                errorMessageOtpVerify.classList.remove('show');
+                errorMessageOtpVerify.textContent = '';
+            }
+            if (successMessageOtpVerify) {
+                successMessageOtpVerify.classList.remove('show');
+                successMessageOtpVerify.textContent = '';
+            }
+
+            const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
+            otpInputs.forEach(input => {
+                if (input) input.value = '';
+            });
+
+            initializeMobileOtp();
+            setOtpInputsPending(sending);
+
+            if (!sending) {
+                startOtpCountdown();
+                if (window.updateVerifyButtonState) {
+                    window.updateVerifyButtonState();
+                }
+                const otp1 = document.getElementById('otp1');
+                if (otp1) {
+                    setTimeout(() => otp1.focus(), 100);
+                }
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return formattedMobileNumber;
+        }
+
+        function hideOtpVerificationUi() {
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            if (otpVerificationSection) {
+                otpVerificationSection.classList.remove('show');
+                otpVerificationSection.style.display = 'none';
+            }
+            stopOtpCountdown();
+            setOtpInputsPending(false);
+        }
+
+        function restoreAfterOtpSendFailure(message, keepVerificationVisible) {
+            if (!keepVerificationVisible) {
+                hideOtpVerificationUi();
+            } else {
+                setOtpInputsPending(false);
+                const errorMessageOtpVerify = document.getElementById('errorMessageOtpVerify');
+                if (errorMessageOtpVerify) {
+                    errorMessageOtpVerify.textContent = message;
+                    errorMessageOtpVerify.classList.add('show');
+                }
+            }
             const sendOtpButton = document.getElementById('sendOtpButton');
             const resendOtpButton = document.getElementById('resendOtpButton');
-            
+            if (sendOtpButton) {
+                sendOtpButton.disabled = false;
+                sendOtpButton.textContent = 'Send OTP';
+            }
+            if (resendOtpButton) {
+                if (keepVerificationVisible && otpCountdownSeconds > 0) {
+                    resendOtpButton.classList.add('disabled');
+                    updateOtpButtonText();
+                } else {
+                    resendOtpButton.classList.remove('disabled');
+                    resendOtpButton.textContent = 'Resend OTP';
+                }
+            }
+            if (keepVerificationVisible) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+            if (otpSendSource === 'signup') {
+                restoreSignupFormAfterError(message);
+                return;
+            }
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.add('show');
+                mobileOtpSection.style.display = 'flex';
+            }
+            if (dividerSection) {
+                dividerSection.style.setProperty('display', 'none', 'important');
+            }
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
+            }
+            showErrorOtp(message);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function checkStaffInviteByMobileInBackground(normalizedMobile, fullMobileNumber) {
+            if (!pendingSignupData || pendingSignupData.staffInvite) return;
+            const mobileForCheck = normalizedMobile || fullMobileNumber;
+            fetch(CHECK_STAFF_INVITE_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+                    'apikey': window.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ mobile_no: mobileForCheck })
+            })
+                .then(async (checkResponse) => {
+                    if (!checkResponse.ok) return;
+                    const checkData = await checkResponse.json();
+                    if (checkData.has_staff_invite) {
+                        pendingSignupData.staffInvite = checkData.staff_invite;
+                    }
+                    if (checkData.has_existing_user) {
+                        pendingSignupData.existingUser = checkData.existing_user;
+                    }
+                })
+                .catch((checkError) => {
+                    console.error('Error checking staff invite by mobile:', checkError);
+                });
+        }
+
+        // Show OTP UI immediately, then validate + send via single edge function
+        async function sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, countryIso) {
+            currentVerifyingMobileNumber = fullMobileNumber;
+
+            const sendOtpButton = document.getElementById('sendOtpButton');
+            const resendOtpButton = document.getElementById('resendOtpButton');
+            const isResend = otpSendSource === 'mobile' &&
+                document.getElementById('otpVerificationSection')?.classList.contains('show');
+
             if (sendOtpButton) {
                 sendOtpButton.disabled = true;
-                sendOtpButton.textContent = 'Validating...';
+                sendOtpButton.textContent = 'Sending...';
             }
             if (resendOtpButton) {
                 resendOtpButton.classList.add('disabled');
-                resendOtpButton.textContent = 'Validating...';
+                resendOtpButton.textContent = 'Sending...';
             }
 
+            showOtpVerificationUi(fullMobileNumber, mobileDigits, countryCode, countryIso, true);
+
             try {
-                // First, validate mobile number ownership
-                const validateResponse = await fetch(VALIDATE_MOBILE_NUMBER_ENDPOINT, {
+                const response = await fetch(REQUEST_VERIFICATION_CODE_ENDPOINT, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
                         'apikey': window.SUPABASE_ANON_KEY
                     },
-                    body: JSON.stringify({
-                        mobile_number: fullMobileNumber
-                    })
+                    body: JSON.stringify({ mobile_number: fullMobileNumber })
                 });
 
-                const validateData = await validateResponse.json();
-                
-                if (!validateResponse.ok) {
-                    // If mobile is already owned AND this is an invite-token flow, show "Kamusta? Ikaw ba 'to?"
-                    // so user can confirm and link their existing account as kasambahay.
-                    if (validateResponse.status === 409 &&
-                        validateData &&
-                        validateData.code === 'MOBILE_ALREADY_OWNED' &&
-                        inviteTokenData &&
-                        inviteTokenData.token) {
-                        // Reset button state before switching screens
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 409 &&
+                        data?.code === 'MOBILE_ALREADY_OWNED' &&
+                        inviteTokenData?.token) {
+                        hideOtpVerificationUi();
                         if (sendOtpButton) {
                             sendOtpButton.disabled = false;
                             sendOtpButton.textContent = 'Send OTP';
@@ -3554,9 +3800,7 @@
                             resendOtpButton.classList.remove('disabled');
                             resendOtpButton.textContent = 'Resend OTP';
                         }
-
-                        const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
-                        const formattedMobileNumber = `${countryCode} ${displayMobile}`;
+                        const formattedMobileNumber = formatOtpDisplayMobile(mobileDigits, countryCode, countryIso);
                         pendingAlreadyRegistered = {
                             emailOrMobile: formattedMobileNumber,
                             isEmail: false,
@@ -3566,136 +3810,28 @@
                         showAlreadyRegisteredScreen(formattedMobileNumber, false);
                         return;
                     }
-
-                    // Validation failed - show error message from backend
-                    if (sendOtpButton) {
-                        sendOtpButton.disabled = false;
-                        sendOtpButton.textContent = 'Send OTP';
-                    }
-                    if (resendOtpButton) {
-                        resendOtpButton.classList.remove('disabled');
-                        resendOtpButton.textContent = 'Resend OTP';
-                    }
-                    showErrorOtp(validateData.error || 'Mobile number validation failed');
-                    return;
+                    throw new Error(data.error || data.message || `Server error: ${response.status}`);
                 }
 
-                // Validation passed - update button text and proceed to send OTP
-                if (sendOtpButton) {
-                    sendOtpButton.textContent = 'Sending...';
-                }
-                if (resendOtpButton) {
-                    resendOtpButton.textContent = 'Sending...';
-                }
+                showOtpVerificationUi(fullMobileNumber, mobileDigits, countryCode, countryIso, false);
 
-                // Call Supabase Edge Function to send OTP
-                const otpResponse = await fetch(SEND_VERIFICATION_CODE_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                        'apikey': window.SUPABASE_ANON_KEY
-                    },
-                    body: JSON.stringify({
-                        mobile_number: fullMobileNumber
-                    })
-                });
-
-                const otpData = await otpResponse.json();
-                
-                if (!otpResponse.ok) {
-                    throw new Error(otpData.error || otpData.message || `Server error: ${otpResponse.status}`);
-                }
-
-                // OTP sent successfully
-                // Format mobile number for display
-                const displayMobile = formatLocalForDisplay(mobileDigits, countryIso);
-                const formattedMobileNumber = `${countryCode} ${displayMobile}`;
-                
-                // Hide mobile OTP section and show OTP verification section
-                const mobileOtpSection = document.getElementById('mobileOtpSection');
-                const otpVerificationSection = document.getElementById('otpVerificationSection');
-                const dividerSection = document.getElementById('dividerSection');
-                const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
-                
-                if (mobileOtpSection) {
-                    mobileOtpSection.classList.remove('show');
-                    mobileOtpSection.style.display = 'none';
-                }
-                
-                // Hide divider and social buttons ("Diretso gamit phone account..." + Google/Apple) when showing OTP verification
-                if (dividerSection) {
-                    dividerSection.style.setProperty('display', 'none', 'important');
-                }
-                if (socialAuthButtonsSection) {
-                    socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
-                }
-                
-                if (otpVerificationSection) {
-                    otpVerificationSection.classList.add('show');
-                    otpVerificationSection.style.display = 'flex';
-                }
-                
-                // Update instruction text with mobile number
-                const instructionText = document.getElementById('otpInstructionText');
-                if (instructionText) {
-                    instructionText.textContent = `Nag-send kami ng OTP sa ${formattedMobileNumber}. Ilagay lang sa taas para ma-verify ang number mo.`;
-                }
-                
-                // Clear any previous error/success messages
-                const errorMessageOtpVerify = document.getElementById('errorMessageOtpVerify');
-                const successMessageOtpVerify = document.getElementById('successMessageOtpVerify');
-                if (errorMessageOtpVerify) {
-                    errorMessageOtpVerify.classList.remove('show');
-                    errorMessageOtpVerify.textContent = '';
-                }
-                if (successMessageOtpVerify) {
-                    successMessageOtpVerify.classList.remove('show');
-                    successMessageOtpVerify.textContent = '';
-                }
-                
-                // Reset OTP inputs
-                const otpInputs = ['otp1', 'otp2', 'otp3', 'otp4'].map(id => document.getElementById(id));
-                otpInputs.forEach(input => {
-                    if (input) input.value = '';
-                });
-                
-                // Ensure OTP input event listeners are set up
-                initializeMobileOtp();
-                
-                // Start countdown timer
-                startOtpCountdown();
-                
-                // Update verify button state (should be disabled initially)
-                if (window.updateVerifyButtonState) {
-                    window.updateVerifyButtonState();
-                }
-                
-                // Focus first OTP input
-                const otp1 = document.getElementById('otp1');
-                if (otp1) {
-                    setTimeout(() => otp1.focus(), 100);
-                }
-                
-                // Scroll to top
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            } catch (error) {
-                console.error('Send OTP error:', error);
                 if (sendOtpButton) {
                     sendOtpButton.disabled = false;
                     sendOtpButton.textContent = 'Send OTP';
                 }
-                if (resendOtpButton) {
+                if (resendOtpButton && !isResend) {
                     resendOtpButton.classList.remove('disabled');
-                    resendOtpButton.disabled = false;
-                    resendOtpButton.textContent = 'Resend OTP';
                 }
-                // Restore signup form so user sees the error and can retry (Petal/other browser compatibility)
-                if (typeof restoreSignupFormAfterError === 'function') {
-                    restoreSignupFormAfterError(error.message || 'Failed to send OTP. Please try again.');
-                } else {
-                    showErrorOtp(error.message || 'Failed to send OTP. Please try again.');
+                if (otpSendSource === 'signup' && submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Mag-sign up';
                 }
+            } catch (error) {
+                console.error('Send OTP error:', error);
+                restoreAfterOtpSendFailure(
+                    error.message || 'Failed to send OTP. Please try again.',
+                    isResend
+                );
             }
         }
 
@@ -3714,8 +3850,9 @@
             // Otherwise, use stored mobile number (resend scenario)
             if (inputValue) {
                 mobile = inputValue;
-                const digits = mobile.replace(/\D/g, '');
-                const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+                const processedDigits = extractLocalMobileDigits(
+                    mobile, selectedCountryCode_iso, selectedCountryCode
+                );
 
                 if ((selectedCountryCode_iso === 'PH' && processedDigits.length !== 10) ||
                     (selectedCountryCode_iso !== 'PH' && processedDigits.length < 5)) {
@@ -3744,70 +3881,15 @@
             const countryCode = countryCodeMatch ? countryCodeMatch[1] : selectedCountryCode;
             const mobileDigits = countryCodeMatch ? countryCodeMatch[2].replace(/\D/g, '') : mobile.replace(/\D/g, '');
             
-            // Check if this is an OAuth user (has active session) - skip staff invite check for OAuth users
-            // OAuth users should not have pendingSignupData, but we check session to be sure
-            let isOAuthUser = false;
-            if (!supabaseClient) {
-                // Ensure supabaseClient is initialized
-                initSupabase();
-            }
-            if (supabaseClient) {
-                try {
-                    const { data: sessionData } = await supabaseClient.auth.getSession();
-                    isOAuthUser = !!sessionData?.session;
-                    if (isOAuthUser) {
-                        console.log('OAuth user detected - skipping staff invite check');
-                    }
-                } catch (e) {
-                    // If we can't check session, assume not OAuth user
-                    console.warn('Could not check session for OAuth status:', e);
-                }
-            }
-            
-            // Check for staff invite by mobile using edge function (skip for OAuth users)
-            // OAuth users will have staff invite checked by signup-user edge function after mobile verification
-            if (!isOAuthUser && pendingSignupData && !pendingSignupData.staffInvite) {
-                try {
-                    const checkResponse = await fetch(CHECK_STAFF_INVITE_ENDPOINT, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-                            'apikey': window.SUPABASE_ANON_KEY
-                        },
-                        body: JSON.stringify({
-                            mobile_no: normalizedMobile || fullMobileNumber
-                        })
-                    });
-
-                    if (checkResponse.ok) {
-                        const checkData = await checkResponse.json();
-                        if (checkData.has_staff_invite) {
-                            pendingSignupData.staffInvite = checkData.staff_invite;
-                            console.log('Staff invite found by mobile:', checkData.staff_invite);
-                        }
-                        if (checkData.has_existing_user) {
-                            pendingSignupData.existingUser = checkData.existing_user;
-                            console.log('Existing user found by mobile:', checkData.existing_user);
-                        }
-                    } else {
-                        const errorData = await checkResponse.json().catch(() => ({}));
-                        console.warn('Check staff invite by mobile returned error:', errorData);
-                    }
-                } catch (checkError) {
-                    console.error('Error checking staff invite by mobile:', checkError);
-                    // Continue with OTP flow even if check fails
-                }
-            }
-            
-            // Update pendingSignupData with mobile number
             if (pendingSignupData) {
                 pendingSignupData.mobileE164 = fullMobileNumber;
                 pendingSignupData.mobileDisplay = displayMobile;
                 pendingSignupData.countryCode = selectedCountryCode;
                 pendingSignupData.countryIso = selectedCountryCode_iso;
+                checkStaffInviteByMobileInBackground(normalizedMobile, fullMobileNumber);
             }
             
+            otpSendSource = 'mobile';
             sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, selectedCountryCode_iso);
         }
 
@@ -3836,8 +3918,9 @@
                 }
 
                 const mobile = mobileOtpInput.value.trim();
-                const digits = mobile.replace(/\D/g, '');
-                const processedDigits = selectedCountryCode_iso === 'PH' ? digits.replace(/^0+/, '') : digits;
+                const processedDigits = extractLocalMobileDigits(
+                    mobile, selectedCountryCode_iso, selectedCountryCode
+                );
                 fullMobileNumber = selectedCountryCode + processedDigits;
                 
                 if (pendingSignupData) {
@@ -3873,135 +3956,7 @@
                     return data;
                 })
                 .then(async (verifyResponse) => {
-                    // Check if this is an OAuth user (has active session)
-                    let session = null;
-                    if (supabaseClient) {
-                        const { data: sessionData } = await supabaseClient.auth.getSession();
-                        session = sessionData?.session;
-                    }
-
-                    if (session) {
-                        // OAuth user: Link mobile number to existing account
-                        console.log('OAuth user - linking mobile number to account');
-                        
-                        // Get user info from OAuth session
-                        const user = session.user;
-                        const userMetadata = user.user_metadata || {};
-                        const appMetadata = user.app_metadata || {};
-                        
-                        // Extract name from OAuth provider metadata
-                        // Different providers use different field names:
-                        // Google: given_name, family_name, name
-                        // Apple: firstName, lastName, fullName
-                        // Facebook: first_name, last_name, name
-                        const fullName = userMetadata.full_name || 
-                                         userMetadata.name || 
-                                         `${userMetadata.first_name || userMetadata.given_name || userMetadata.firstName || ''} ${userMetadata.last_name || userMetadata.family_name || userMetadata.lastName || ''}`.trim() ||
-                                         user.email?.split('@')[0] || 
-                                         'User';
-                        
-                        const firstName = userMetadata.first_name || 
-                                         userMetadata.given_name || 
-                                         userMetadata.firstName ||
-                                         fullName.split(' ')[0] || 
-                                         'User';
-                        const lastName = userMetadata.last_name || 
-                                        userMetadata.family_name || 
-                                        userMetadata.lastName || 
-                                        fullName.split(' ').slice(1).join(' ') || 
-                                        '';
-                        
-                        // Truncate fields to fit database constraints (VARCHAR(20) for nickname)
-                        const truncatedFirstName = firstName.length > 20 ? firstName.substring(0, 20) : firstName;
-                        
-                        // IMPORTANT: Update auth user's metadata (NOT phone field) BEFORE calling signup-user
-                        // Setting phone field triggers SMS verification which requires SMS provider configuration
-                        // We only update metadata - the mobile number will be saved via signup-user edge function
-                        console.log('Updating auth user metadata with verified mobile number:', fullMobileNumber);
-                        try {
-                            const { data: updateData, error: updateError } = await supabaseClient.auth.updateUser({
-                                data: {
-                                    ...userMetadata,
-                                    mobile_no: fullMobileNumber,
-                                    full_name: fullName,
-                                    first_name: firstName,
-                                    last_name: lastName
-                                }
-                            });
-                            
-                            if (updateError) {
-                                console.warn('Failed to update auth user metadata:', updateError);
-                                // Continue anyway - signup-user will handle it
-                            } else {
-                                console.log('Successfully updated auth user metadata with mobile number');
-                                // Refresh session to get updated user data
-                                const { data: { session: refreshedSession } } = await supabaseClient.auth.refreshSession();
-                                if (refreshedSession) {
-                                    session = refreshedSession;
-                                }
-                            }
-                        } catch (updateErr) {
-                            console.warn('Error updating auth user metadata:', updateErr);
-                            // Continue anyway - signup-user will handle it
-                        }
-                        
-                        // For OAuth users, we send all required fields
-                        // The backend should recognize this is an OAuth user via the access_token
-                        // and handle the password field appropriately (ignore it or use a placeholder)
-                        // Use refreshed session token if available (session was updated above)
-                        const oauthPayload = {
-                            user_id: user.id, // OAuth user ID for staff invite lookup by user_id
-                            email: inviteTokenData?.email || user.email, // Use token email if available
-                            mobile_no: fullMobileNumber, // Normalized mobile number for staff invite lookup
-                            full_name: inviteTokenData?.name || fullName, // Use token name if available
-                            first_name: inviteTokenData?.name?.split(' ')[0] || truncatedFirstName,
-                            last_name: null,
-                            nickname: inviteTokenData?.nickname || truncatedFirstName,
-                            role: inviteTokenData?.role || 'kasambahay', // Use token role if available, otherwise kasambahay
-                            // OAuth users don't have passwords - backend should handle this
-                            // Sending placeholder that backend can ignore for OAuth users
-                            password: 'oauth_authenticated_user_no_password_required'
-                        };
-                        
-                        // Include token if present (for tokenized invite)
-                        if (inviteTokenData?.token) {
-                            oauthPayload.token = inviteTokenData.token;
-                            console.log('Sending OAuth signup with invite token:', inviteTokenData.token);
-                        }
-                        
-                        const linkMobileResponse = await fetch(SIGNUP_ENDPOINT, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${session.access_token}`,
-                                'apikey': window.SUPABASE_ANON_KEY,
-                            },
-                            body: JSON.stringify(oauthPayload),
-                        });
-
-                        const linkResult = await linkMobileResponse.json().catch(() => ({}));
-
-                        // Handle response - 409 means user already exists
-                        // Backend should check staff_invite table and link household if found
-                        if (!linkMobileResponse.ok && linkMobileResponse.status !== 409) {
-                            const errorMsg = linkResult.error || linkResult.message || 'Failed to link mobile number';
-
-                            // Log error for debugging
-                            console.warn('Link mobile endpoint returned error:', errorMsg);
-
-                            // Only throw if it's a critical error (not user already exists)
-                            if (linkMobileResponse.status !== 400 && linkMobileResponse.status !== 409) {
-                                throw new Error(errorMsg);
-                            }
-                        }
-
-                        // Check if we got a successful response or 409 (user exists but might be linking invite)
-                        if (linkMobileResponse.ok || linkMobileResponse.status === 409) {
-                            ingestHandoffTokenFromSignupResponse(linkResult, { mergeOnly: true });
-                            console.log('Mobile number linked successfully (or user already exists with staff invite)');
-                        }
-                        return { success: true };
-                    } else if (pendingSignupData) {
+                    if (pendingSignupData) {
                         // Manual signup path: Create new user account
                         // Step 5: Combine the data (existing user data + new signup data)
                         const existingUserData = pendingSignupData.existingUser;
@@ -4079,13 +4034,95 @@
                         ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                         pendingSignupData = null;
                         return data;
-                    } else {
+                    }
+
+                    // OAuth path: validate session server-side, then link mobile via signup-user
+                    if (!supabaseClient) initSupabase();
+                    let cachedSession = null;
+                    if (supabaseClient) {
+                        const { data: sessionData } = await supabaseClient.auth.getSession();
+                        cachedSession = sessionData?.session;
+                    }
+
+                    if (!cachedSession) {
                         throw new Error('Signup data missing after OTP verification.');
                     }
+
+                    const validated = await validateOAuthSession(cachedSession, { useOtpError: true });
+                    if (!validated.ok) {
+                        throw new Error('STALE_AUTH_SESSION_HANDLED');
+                    }
+
+                    const session = validated.session;
+                    const user = validated.user;
+                    const userMetadata = user.user_metadata || {};
+
+                    console.log('OAuth user - linking mobile number to account');
+
+                    const fullName = userMetadata.full_name ||
+                        userMetadata.name ||
+                        `${userMetadata.first_name || userMetadata.given_name || userMetadata.firstName || ''} ${userMetadata.last_name || userMetadata.family_name || userMetadata.lastName || ''}`.trim() ||
+                        user.email?.split('@')[0] ||
+                        'User';
+
+                    const firstName = userMetadata.first_name ||
+                        userMetadata.given_name ||
+                        userMetadata.firstName ||
+                        fullName.split(' ')[0] ||
+                        'User';
+
+                    const truncatedFirstName = firstName.length > 20 ? firstName.substring(0, 20) : firstName;
+
+                    const oauthPayload = {
+                        user_id: user.id,
+                        email: inviteTokenData?.email || user.email,
+                        mobile_no: fullMobileNumber,
+                        full_name: inviteTokenData?.name || fullName,
+                        first_name: inviteTokenData?.name?.split(' ')[0] || truncatedFirstName,
+                        last_name: null,
+                        nickname: inviteTokenData?.nickname || truncatedFirstName,
+                        role: inviteTokenData?.role || 'kasambahay',
+                        password: 'oauth_authenticated_user_no_password_required'
+                    };
+
+                    if (inviteTokenData?.token) {
+                        oauthPayload.token = inviteTokenData.token;
+                        console.log('Sending OAuth signup with invite token:', inviteTokenData.token);
+                    }
+
+                    const linkMobileResponse = await fetch(SIGNUP_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'apikey': window.SUPABASE_ANON_KEY,
+                        },
+                        body: JSON.stringify(oauthPayload),
+                    });
+
+                    const linkResult = await linkMobileResponse.json().catch(() => ({}));
+
+                    if (!linkMobileResponse.ok && linkMobileResponse.status !== 409) {
+                        const errorMsg = linkResult.error || linkResult.message || 'Failed to link mobile number';
+                        if (linkMobileResponse.status === 401 ||
+                            linkResult.code === 'STALE_AUTH_SESSION' ||
+                            isStaleAuthUserError(errorMsg)) {
+                            await handleStaleAuthSession({ message: errorMsg }, { useOtpError: true });
+                            throw new Error('STALE_AUTH_SESSION_HANDLED');
+                        }
+                        console.warn('Link mobile endpoint returned error:', errorMsg);
+                        if (linkMobileResponse.status !== 400) {
+                            throw new Error(errorMsg);
+                        }
+                    }
+
+                    if (linkMobileResponse.ok || linkMobileResponse.status === 409) {
+                        ingestHandoffTokenFromSignupResponse(linkResult, { mergeOnly: true });
+                        console.log('Mobile number linked successfully (or user already exists with staff invite)');
+                    }
+                    return { success: true };
                 })
                 .then(() => {
-                    // Only reset button and show success for email/password flow
-                    // Provider flow will redirect before reaching here
                     if (verifyOtpButton) {
                         verifyOtpButton.disabled = false;
                         verifyOtpButton.textContent = 'Verify';
@@ -4099,6 +4136,7 @@
                         verifyOtpButton.textContent = 'Verify';
                     }
                     if (error.message === 'ALREADY_REGISTERED_SHOWN') return;
+                    if (error.message === 'STALE_AUTH_SESSION_HANDLED') return;
                     showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
                 });
         }
@@ -4109,6 +4147,60 @@
             if (window.supabase && SUPABASE_URL && window.SUPABASE_ANON_KEY) {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, window.SUPABASE_ANON_KEY);
             }
+        }
+
+        function isStaleAuthUserError(err) {
+            const msg = String(err?.message || err?.error || err || '').toLowerCase();
+            const code = String(err?.code || '').toUpperCase();
+            return code === 'STALE_AUTH_SESSION' ||
+                (msg.includes('sub claim') && msg.includes('does not exist'));
+        }
+
+        async function handleStaleAuthSession(err, options = {}) {
+            const useOtpError = !!(options && options.useOtpError);
+            try {
+                if (supabaseClient) {
+                    await supabaseClient.auth.signOut();
+                }
+            } catch (signOutErr) {
+                console.warn('signOut after stale session:', signOutErr);
+            }
+            sessionStorage.removeItem('oauthProcessed');
+            sessionStorage.removeItem('oauthSignupCompleted');
+            sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
+            restoreInviteTokenDataAfterOAuth();
+
+            const message =
+                'Nag-expire na ang sign-in session. Paki-sign in ulit gamit Google/Apple/FB, tapos i-verify ulit ang OTP.';
+            if (useOtpError) {
+                showErrorOtp(message);
+            } else {
+                showError(message);
+            }
+            setProviderButtonsDisabled(false);
+        }
+
+        /** Server-side check that auth.users still exists for the cached OAuth session. */
+        async function validateOAuthSession(cachedSession, options = {}) {
+            const useOtpError = !!(options && options.useOtpError);
+            if (!cachedSession?.access_token || !supabaseClient) {
+                return { ok: false };
+            }
+            const { data, error } = await supabaseClient.auth.getUser();
+            if (error || !data?.user) {
+                if (isStaleAuthUserError(error)) {
+                    await handleStaleAuthSession(error, { useOtpError });
+                } else {
+                    console.warn('OAuth session validation failed:', error);
+                    try {
+                        await supabaseClient.auth.signOut();
+                    } catch (_) { /* ignore */ }
+                }
+                return { ok: false };
+            }
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const session = sessionData?.session?.access_token ? sessionData.session : cachedSession;
+            return { ok: true, session, user: data.user };
         }
 
         // Tokenized invite handling
@@ -4339,31 +4431,15 @@
                         dividerSection.style.setProperty('display', 'none', 'important');
                     }
 
-                    // Pre-fill mobile field (NOT editable)
                     if (mobileInput) {
-                        // Extract local number from E.164 format (e.g., +639123456789 -> 9123456789)
-                        // Handle different formats: +63..., 63..., or already local format
-                        let localMobile = tokenMobile.trim();
-                        
-                        // Remove E.164 prefix if present
-                        if (localMobile.startsWith('+63')) {
-                            localMobile = localMobile.substring(3);
-                        } else if (localMobile.startsWith('63') && localMobile.length > 10) {
-                            localMobile = localMobile.substring(2);
-                        }
-                        
-                        // Remove any non-digit characters and leading zeros for PH
-                        const digits = localMobile.replace(/\D/g, '');
-                        const processedDigits = digits.replace(/^0+/, '');
-                        
-                        // Format for display (assuming PH format)
+                        const processedDigits = extractLocalMobileDigits(
+                            tokenMobile, 'PH', '+63', { forceStripCallingCode: true }
+                        );
                         if (processedDigits.length === 10) {
                             mobileInput.value = formatLocalForDisplay(processedDigits, 'PH');
-                        } else if (digits.length > 0) {
-                            // Fallback: use digits as-is if not 10 digits
-                            mobileInput.value = digits;
+                        } else if (processedDigits.length > 0) {
+                            mobileInput.value = processedDigits;
                         }
-                        // Make it read-only when coming from invite token
                         mobileInput.readOnly = true;
                     }
                     
@@ -5047,9 +5123,12 @@
                     if (supabaseClient) {
                         const { data: sessionData } = await supabaseClient.auth.getSession();
                         if (sessionData?.session) {
-                            callSignupUserOnce(sessionData.session);
-                            console.log('Found active session, showing success screen...');
-                            showSuccessScreen();
+                            const validated = await validateOAuthSession(sessionData.session);
+                            if (validated.ok) {
+                                callSignupUserOnce(validated.session);
+                                console.log('Found active session, showing success screen...');
+                                showSuccessScreen();
+                            }
                         }
                     }
                 } catch (e) {
@@ -5094,7 +5173,11 @@
 
                         if (sessionError) {
                             console.error('Error setting session:', sessionError);
-                            showError('Failed to complete sign in. Please try again.');
+                            if (isStaleAuthUserError(sessionError)) {
+                                await handleStaleAuthSession(sessionError);
+                            } else {
+                                showError('Failed to complete sign in. Please try again.');
+                            }
                             return;
                         }
 
@@ -5134,6 +5217,12 @@
 
                 // If we have a session and haven't processed it yet, show success immediately (don't wait for signup-user)
                 if (session) {
+                    const validated = await validateOAuthSession(session);
+                    if (!validated.ok) {
+                        return;
+                    }
+                    session = validated.session;
+
                     // Mark as processed and show "Nakaregister na tayo" immediately so user doesn't wait
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
@@ -5159,12 +5248,17 @@
         }
 
         // Ensures signup-user is called at most once per OAuth return (processOAuthCallback + auth listener can both fire).
-        function callSignupUserOnce(session) {
+        async function callSignupUserOnce(session) {
             if (!session?.access_token) return;
             if (sessionStorage.getItem('oauthSignupCompleted') || sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) return;
+
+            if (!supabaseClient) initSupabase();
+            const validated = await validateOAuthSession(session);
+            if (!validated.ok) return;
+
             sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
             console.log('[OAuth] Calling signup-user (once)...');
-            finalizeOAuthSignup(session)
+            finalizeOAuthSignup(validated.session)
                 .then(() => {
                     sessionStorage.setItem('oauthSignupCompleted', '1');
                     clearInviteTokenDataAfterOAuth();
@@ -5244,6 +5338,12 @@
                 return;
             }
             const errMsg = signupUserBody.error || signupUserBody.message || `Signup failed: ${res.status}`;
+            if (res.status === 401 ||
+                signupUserBody.code === 'STALE_AUTH_SESSION' ||
+                isStaleAuthUserError(errMsg)) {
+                await handleStaleAuthSession({ message: errMsg });
+                return;
+            }
             throw new Error(errMsg);
         }
 
