@@ -92,12 +92,40 @@ serve(async (req) => {
             )
         }
 
-        // TODO: Integrate SMS provider (Twilio, etc.) — same as send-verification-code
+        // Delegate OTP generation, SMS (Semaphore), and signup_codes storage to send-verification-code
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const sendOtpUrl = `${supabaseUrl}/functions/v1/send-verification-code`
+        const sendResponse = await fetch(sendOtpUrl, {
+            method: 'POST',
+            headers: {
+                Authorization: authHeader,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mobile_number: normalizedMobile,
+                purpose: 'signup',
+            }),
+        })
+
+        const sendData = await sendResponse.json().catch(() => ({}))
+
+        if (!sendResponse.ok) {
+            console.error('[request-verification-code] send-verification-code failed:', sendData)
+            return new Response(
+                JSON.stringify({
+                    error: sendData.error || 'Failed to send verification code',
+                    is_valid: true,
+                }),
+                { status: sendResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
         return new Response(
             JSON.stringify({
-                message: 'OTP sent successfully',
+                message: sendData.message || 'OTP sent successfully',
                 is_valid: true,
-                mobile_number: normalizedMobile
+                mobile_number: normalizedMobile,
+                expires_in: sendData.expires_in,
             }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )

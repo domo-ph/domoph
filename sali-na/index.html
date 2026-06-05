@@ -4,6 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="dns-prefetch" href="https://www.clarity.ms">
+    <script type="text/javascript">
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "x273bc4xl8");
+    </script>
     <title>Sign up - Domo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2014,7 +2022,7 @@
                         <label for="name" class="mobile-input-inline-label">Pangalan</label>
                         <div class="mobile-input-row">
                             <input type="text" id="name" name="name" class="mobile-input-field"
-                                placeholder="Pangalan" autocomplete="name" />
+                                placeholder="Pangalan" autocomplete="name" data-clarity-mask="true" />
                         </div>
                     </div>
                 </div>
@@ -2025,7 +2033,7 @@
                         <label for="email" class="mobile-input-inline-label">Email</label>
                         <div class="mobile-input-row">
                             <input type="email" id="email" name="email" class="mobile-input-field"
-                                placeholder="email@example.com" autocomplete="email" />
+                                placeholder="email@example.com" autocomplete="email" data-clarity-mask="true" />
                         </div>
                     </div>
                 </div>
@@ -2043,7 +2051,7 @@
                                 <span class="country-dropdown-icon">▼</span>
                             </button>
                             <input type="tel" id="mobile" name="mobile" class="mobile-input-field"
-                                placeholder="917 123 4567" autocomplete="tel" required />
+                                placeholder="917 123 4567" autocomplete="tel" required data-clarity-mask="true" />
                         </div>
                     </div>
                 </div>
@@ -2054,7 +2062,7 @@
                         <label for="password" class="mobile-input-inline-label">Gumawa ng password</label>
                         <div class="mobile-input-row">
                             <input type="password" id="password" name="password" class="mobile-input-field"
-                                autocomplete="new-password" required />
+                                autocomplete="new-password" required data-clarity-mask="true" />
                         </div>
                     </div>
                 </div>
@@ -2135,7 +2143,7 @@
                             <span class="country-dropdown-icon">▼</span>
                         </button>
                         <input type="tel" id="mobileOtpInput" class="mobile-input-number" placeholder="912 345 6789"
-                            autocomplete="tel" />
+                            autocomplete="tel" data-clarity-mask="true" />
                     </div>
                 </div>
             </div>
@@ -2158,17 +2166,17 @@
             <div id="successMessageOtpVerify" class="success-message" role="status"></div>
 
             <!-- OTP Input Section -->
-            <div class="otp-section">
+            <div class="otp-section" data-clarity-mask="true">
                 <label class="otp-label">One time PIN:</label>
                 <div class="otp-inputs">
                     <input type="text" id="otp1" class="otp-input" maxlength="1" inputmode="numeric"
-                        autocomplete="one-time-code" />
+                        autocomplete="one-time-code" data-clarity-mask="true" />
                     <input type="text" id="otp2" class="otp-input" maxlength="1" inputmode="numeric"
-                        autocomplete="one-time-code" />
+                        autocomplete="one-time-code" data-clarity-mask="true" />
                     <input type="text" id="otp3" class="otp-input" maxlength="1" inputmode="numeric"
-                        autocomplete="one-time-code" />
+                        autocomplete="one-time-code" data-clarity-mask="true" />
                     <input type="text" id="otp4" class="otp-input" maxlength="1" inputmode="numeric"
-                        autocomplete="one-time-code" />
+                        autocomplete="one-time-code" data-clarity-mask="true" />
                 </div>
             </div>
 
@@ -2178,7 +2186,7 @@
             </div>
 
             <!-- Instruction Text -->
-            <div class="otp-instruction-text">
+            <div class="otp-instruction-text" data-clarity-mask="true">
                 <p id="otpInstructionText">Nag-send kami ng OTP sa +63 917 123 4567. Ilagay lang sa taas para ma-verify ang number mo.</p>
             </div>
 
@@ -2260,7 +2268,7 @@
                 <div class="already-registered-text-container">
                     <h2 class="already-registered-title">Kamusta?</h2>
                     <p class="already-registered-description" id="alreadyRegisteredMessage">
-                        Napansin namin na naka-register na ang <span id="alreadyRegisteredContact" class="already-registered-highlight"></span>. Ikaw ba 'to?
+                        Napansin namin na naka-register na ang <span id="alreadyRegisteredContact" class="already-registered-highlight" data-clarity-mask="true"></span>. Ikaw ba 'to?
                     </p>
                 </div>
                 <div class="already-registered-actions">
@@ -2291,6 +2299,22 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
+        function claritySet(key, value) {
+            if (typeof window.clarity === 'function') {
+                window.clarity('set', key, String(value));
+            }
+        }
+
+        function clarityEvent(name) {
+            if (typeof window.clarity === 'function') {
+                window.clarity('event', name);
+            }
+        }
+
+        function clarityTrackStep(step) {
+            claritySet('signup_step', step);
+        }
+
         // Supabase Configuration
         // Set your Supabase URL and anon key here or via window globals
         const SUPABASE_URL = window.SUPABASE_URL || 'https://vampznzoubbljcdadzoo.supabase.co';
@@ -2860,6 +2884,7 @@
 
         // Show error message
         function showError(message) {
+            clarityEvent('signup_error');
             errorMessage.textContent = message;
             errorMessage.classList.add('show');
             successMessage.classList.remove('show');
@@ -2956,6 +2981,8 @@
                     mobileInputEl.removeAttribute('required');
                 }
             }
+            claritySet('signup_tab', tab);
+            clarityTrackStep(tab === 'email' ? 'email_form' : 'mobile_form');
             updateButtonState();
         }
 
@@ -2992,6 +3019,8 @@
                     return;
                 }
                 const fullName = nameVal || (inviteTokenData && inviteTokenData.name) || 'User';
+                claritySet('signup_method', 'email');
+                clarityEvent('signup_form_submitted');
                 submitButton.disabled = true;
                 submitButton.textContent = 'Mag-sign up...';
                 try {
@@ -3174,6 +3203,8 @@
                 supabaseClient.auth.signOut().catch(() => {});
             }
 
+            claritySet('signup_method', 'mobile');
+            clarityEvent('signup_form_submitted');
             submitButton.disabled = true;
             submitButton.textContent = 'Sending OTP...';
 
@@ -3259,6 +3290,7 @@
                 if (tabBar) tabBar.style.display = 'flex';
                 signupMode = 'mobile';
                 switchSignupTab('mobile');
+                clarityTrackStep('email_form');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
@@ -3334,6 +3366,7 @@
                 submitButton.textContent = 'Mag-sign up';
             }
 
+            clarityTrackStep('main');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         window.showMainContent = showMainContent;
@@ -3477,6 +3510,7 @@
 
         // Show error message (for OTP section)
         function showErrorOtp(message) {
+            clarityEvent('signup_error');
             // Check which section is visible
             const otpVerificationSection = document.getElementById('otpVerificationSection');
             const isVerificationVisible = otpVerificationSection && otpVerificationSection.classList.contains('show');
@@ -3652,6 +3686,7 @@
             setOtpInputsPending(sending);
 
             if (!sending) {
+                clarityTrackStep('otp_verify');
                 startOtpCountdown();
                 if (window.updateVerifyButtonState) {
                     window.updateVerifyButtonState();
@@ -3814,6 +3849,7 @@
                 }
 
                 showOtpVerificationUi(fullMobileNumber, mobileDigits, countryCode, countryIso, false);
+                clarityEvent('signup_otp_sent');
 
                 if (sendOtpButton) {
                     sendOtpButton.disabled = false;
@@ -3889,6 +3925,10 @@
                 checkStaffInviteByMobileInBackground(normalizedMobile, fullMobileNumber);
             }
             
+            if (inputValue) {
+                claritySet('signup_method', 'mobile');
+                clarityEvent('signup_form_submitted');
+            }
             otpSendSource = 'mobile';
             sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, selectedCountryCode_iso);
         }
@@ -4127,6 +4167,7 @@
                         verifyOtpButton.disabled = false;
                         verifyOtpButton.textContent = 'Verify';
                     }
+                    clarityEvent('signup_otp_verified');
                     showSuccessScreen();
                 })
                 .catch(error => {
@@ -4269,9 +4310,13 @@
             
             if (!token) {
                 // No token: show same image as "token already used" with no-invite-token message
+                claritySet('has_invite_token', 'false');
                 showNoInviteToken();
                 return;
             }
+
+            claritySet('has_invite_token', 'true');
+            clarityTrackStep('loading');
 
             // Token present: show form section with only loading state visible
             const tokenLoadingState = document.getElementById('tokenLoadingState');
@@ -4506,7 +4551,7 @@
                     formSection.classList.remove('hide');
                 }
 
-                // Scroll to form
+                clarityTrackStep('main');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (err) {
@@ -4541,6 +4586,7 @@
         }
 
         function showTokenError(message) {
+            clarityTrackStep('token_error');
             const tokenErrorMessage = document.getElementById('tokenErrorMessage');
             if (tokenErrorMessage) {
                 tokenErrorMessage.textContent = message;
@@ -4550,6 +4596,7 @@
         }
 
         function showTokenAlreadyUsed() {
+            clarityTrackStep('token_used');
             hideTokenLoading();
             const formSection = document.getElementById('formSection');
             const tokenLoadingState = document.getElementById('tokenLoadingState');
@@ -4585,6 +4632,7 @@
         }
 
         function showNoInviteToken() {
+            clarityTrackStep('no_token');
             const formSection = document.getElementById('formSection');
             const tokenLoadingState = document.getElementById('tokenLoadingState');
             const tokenErrorMessage = document.getElementById('tokenErrorMessage');
@@ -4659,6 +4707,8 @@
         function beginProviderSignupWithOtp(provider) {
             hideError();
             hideSuccess();
+            claritySet('signup_method', provider);
+            clarityEvent('signup_oauth_started');
             if (!supabaseClient) initSupabase();
             if (!supabaseClient) {
                 showError('Unable to initialize authentication. Please try again later.');
@@ -4856,7 +4906,7 @@
                 setTimeout(() => mobileOtpInput.focus(), 100);
             }
 
-            // Scroll to top
+            clarityTrackStep('otp_send');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -4902,6 +4952,9 @@
             const alreadyRegisteredSection = document.getElementById('alreadyRegisteredSection');
             if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
 
+            clarityTrackStep('success');
+            clarityEvent('signup_completed');
+
             // Show success section
             if (successSection) {
                 successSection.classList.add('show');
@@ -4945,6 +4998,7 @@
             if (successSection) successSection.classList.remove('show');
             if (alreadyRegisteredSection) {
                 alreadyRegisteredSection.classList.add('show');
+                clarityTrackStep('already_registered');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
@@ -5049,6 +5103,7 @@
 
             // Add device-specific class
             body.classList.add(`device-${device}`);
+            claritySet('device_type', device);
         }
 
         // Initialize device detection on page load
