@@ -2315,6 +2315,42 @@
             claritySet('signup_step', step);
         }
 
+        function trackSignupApi(eventName, tags) {
+            clarityEvent(eventName);
+            if (!tags) return;
+            Object.keys(tags).forEach(function (key) {
+                var val = tags[key];
+                if (val !== undefined && val !== null && val !== '') {
+                    claritySet(key, String(val));
+                }
+            });
+        }
+
+        function trackValidationFailed(stage) {
+            trackSignupApi('sali_na_validation_failed', { failure_stage: stage });
+        }
+
+        function trackSignupUserOutcome(response, data, signupPath) {
+            var tags = { signup_path: signupPath, http_status: String(response.status) };
+            if (response.ok) {
+                trackSignupApi('sali_na_signup_user_success', tags);
+                return { ok: true, alreadyRegistered: false };
+            }
+            var errMsg = (data && (data.error || data.message)) || '';
+            var isAlreadyRegistered = response.status === 409 ||
+                (response.status === 400 && /already|registered|exists/i.test(String(errMsg)));
+            if (isAlreadyRegistered) {
+                trackSignupApi('sali_na_signup_user_already_registered', Object.assign({}, tags, {
+                    error_type: (data && data.code) || 'already_registered'
+                }));
+                return { ok: false, alreadyRegistered: true };
+            }
+            trackSignupApi('sali_na_signup_user_failed', Object.assign({}, tags, {
+                error_type: (data && data.code) || 'unknown'
+            }));
+            return { ok: false, alreadyRegistered: false };
+        }
+
         // Supabase Configuration
         // Set your Supabase URL and anon key here or via window globals
         const SUPABASE_URL = window.SUPABASE_URL || 'https://vampznzoubbljcdadzoo.supabase.co';
@@ -2331,6 +2367,7 @@
                 }
             }
             
+            trackSignupApi('sali_na_page_loaded');
             // Check for token parameter and validate invite token (does NOT consume)
             checkAndValidateInviteToken();
         });
@@ -2884,7 +2921,6 @@
 
         // Show error message
         function showError(message) {
-            clarityEvent('signup_error');
             errorMessage.textContent = message;
             errorMessage.classList.add('show');
             successMessage.classList.remove('show');
@@ -2995,10 +3031,12 @@
 
             const password = passwordInput.value.trim();
             if (!password) {
+                trackValidationFailed('password_missing');
                 showError('Please enter your password');
                 return;
             }
             if (!validatePassword(password)) {
+                trackValidationFailed('password_invalid');
                 showError('Password must be at least 6 characters long');
                 return;
             }
@@ -3010,17 +3048,19 @@
                 const emailVal = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
                 const nameVal = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
                 if (!emailVal) {
+                    trackValidationFailed('email_missing');
                     showError('Please enter your email');
                     return;
                 }
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(emailVal)) {
+                    trackValidationFailed('email_invalid');
                     showError('Please enter a valid email address');
                     return;
                 }
                 const fullName = nameVal || (inviteTokenData && inviteTokenData.name) || 'User';
                 claritySet('signup_method', 'email');
-                clarityEvent('signup_form_submitted');
+                trackSignupApi('sali_na_method_email_submit', { signup_path: 'email' });
                 submitButton.disabled = true;
                 submitButton.textContent = 'Mag-sign up...';
                 try {
@@ -3045,9 +3085,9 @@
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
+                        const outcome = trackSignupUserOutcome(res, data, 'email');
                         const errMsg = data.error || data.message || '';
-                        const isAlreadyRegistered = res.status === 409 || /already|registered|exists/i.test(String(errMsg));
-                        if (isAlreadyRegistered && (inviteTokenData && inviteTokenData.token)) {
+                        if (outcome.alreadyRegistered && (inviteTokenData && inviteTokenData.token)) {
                             pendingAlreadyRegistered = {
                                 emailOrMobile: emailVal,
                                 isEmail: true,
@@ -3060,7 +3100,7 @@
                             submitButton.textContent = 'Mag-sign up';
                             return;
                         }
-                        const message = isAlreadyRegistered
+                        const message = outcome.alreadyRegistered
                             ? 'Ang email mo ay nakaregister na. Subukan mong mag-login sa halip.'
                             : (errMsg || 'Signup failed. Please try again.');
                         showError(message);
@@ -3068,12 +3108,14 @@
                         submitButton.textContent = 'Mag-sign up';
                         return;
                     }
+                    trackSignupUserOutcome(res, data, 'email');
                     if (form) form.reset();
                     pendingSignupData = null;
                     ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                     showSuccessScreen();
                 } catch (err) {
                     console.error('Email signup error:', err);
+                    trackSignupApi('sali_na_signup_user_failed', { signup_path: 'email', error_type: 'network' });
                     showError('May naging problema. Pakisubukan ulit.');
                 }
                 submitButton.disabled = false;
@@ -3084,6 +3126,7 @@
             // Mobile tab: existing mobile + OTP flow
             const identifier = (mobileInput && mobileInput.value) ? mobileInput.value.trim() : '';
             if (!identifier) {
+                trackValidationFailed('mobile_missing');
                 showError('Please fill in all required fields (mobile and password)');
                 return;
             }
@@ -3134,12 +3177,21 @@
                             existingUser = checkData.existing_user;
                             console.log('Existing user found:', existingUser);
                         }
+                        trackSignupApi('sali_na_staff_invite_check_success', {
+                            has_staff_invite: checkData.has_staff_invite ? 'true' : 'false',
+                            has_existing_user: checkData.has_existing_user ? 'true' : 'false'
+                        });
                     } else {
                         const errorData = await checkResponse.json().catch(() => ({}));
                         console.warn('Check staff invite returned error:', errorData);
+                        trackSignupApi('sali_na_staff_invite_check_failed', {
+                            http_status: String(checkResponse.status),
+                            error_type: errorData.code || 'unknown'
+                        });
                     }
                 } catch (checkError) {
                     console.error('Error checking staff invite:', checkError);
+                    trackSignupApi('sali_na_staff_invite_check_failed', { error_type: 'network' });
                     // Continue with signup flow even if check fails
                 }
             }
@@ -3175,6 +3227,7 @@
 
             // Validate mobile number and send OTP directly
             if (!validateMobile(identifier, selectedCountryCode_iso)) {
+                trackValidationFailed('mobile_invalid');
                 restoreSignupFormAfterError(selectedCountryCode_iso === 'PH'
                     ? 'Please enter a valid 10-digit Philippine mobile number'
                     : 'Please enter a valid mobile number');
@@ -3204,7 +3257,7 @@
             }
 
             claritySet('signup_method', 'mobile');
-            clarityEvent('signup_form_submitted');
+            trackSignupApi('sali_na_method_mobile_submit', { signup_path: 'mobile_otp' });
             submitButton.disabled = true;
             submitButton.textContent = 'Sending OTP...';
 
@@ -3510,7 +3563,6 @@
 
         // Show error message (for OTP section)
         function showErrorOtp(message) {
-            clarityEvent('signup_error');
             // Check which section is visible
             const otpVerificationSection = document.getElementById('otpVerificationSection');
             const isVerificationVisible = otpVerificationSection && otpVerificationSection.classList.contains('show');
@@ -3775,7 +3827,13 @@
                 body: JSON.stringify({ mobile_no: mobileForCheck })
             })
                 .then(async (checkResponse) => {
-                    if (!checkResponse.ok) return;
+                    if (!checkResponse.ok) {
+                        trackSignupApi('sali_na_staff_invite_check_failed', {
+                            http_status: String(checkResponse.status),
+                            error_type: 'background_check'
+                        });
+                        return;
+                    }
                     const checkData = await checkResponse.json();
                     if (checkData.has_staff_invite) {
                         pendingSignupData.staffInvite = checkData.staff_invite;
@@ -3783,9 +3841,14 @@
                     if (checkData.has_existing_user) {
                         pendingSignupData.existingUser = checkData.existing_user;
                     }
+                    trackSignupApi('sali_na_staff_invite_check_success', {
+                        has_staff_invite: checkData.has_staff_invite ? 'true' : 'false',
+                        has_existing_user: checkData.has_existing_user ? 'true' : 'false'
+                    });
                 })
                 .catch((checkError) => {
                     console.error('Error checking staff invite by mobile:', checkError);
+                    trackSignupApi('sali_na_staff_invite_check_failed', { error_type: 'network' });
                 });
         }
 
@@ -3808,6 +3871,7 @@
             }
 
             showOtpVerificationUi(fullMobileNumber, mobileDigits, countryCode, countryIso, true);
+            trackSignupApi('sali_na_otp_send_started', { signup_path: 'mobile_otp' });
 
             try {
                 const response = await fetch(REQUEST_VERIFICATION_CODE_ENDPOINT, {
@@ -3826,6 +3890,11 @@
                     if (response.status === 409 &&
                         data?.code === 'MOBILE_ALREADY_OWNED' &&
                         inviteTokenData?.token) {
+                        trackSignupApi('sali_na_signup_user_already_registered', {
+                            signup_path: 'mobile_otp',
+                            http_status: String(response.status),
+                            error_type: 'MOBILE_ALREADY_OWNED'
+                        });
                         hideOtpVerificationUi();
                         if (sendOtpButton) {
                             sendOtpButton.disabled = false;
@@ -3845,11 +3914,18 @@
                         showAlreadyRegisteredScreen(formattedMobileNumber, false);
                         return;
                     }
+                    trackSignupApi('sali_na_otp_send_failed', {
+                        http_status: String(response.status),
+                        error_type: data.code || 'unknown'
+                    });
                     throw new Error(data.error || data.message || `Server error: ${response.status}`);
                 }
 
                 showOtpVerificationUi(fullMobileNumber, mobileDigits, countryCode, countryIso, false);
-                clarityEvent('signup_otp_sent');
+                trackSignupApi(isResend ? 'sali_na_otp_resend_success' : 'sali_na_otp_send_success', {
+                    signup_path: 'mobile_otp',
+                    http_status: String(response.status)
+                });
 
                 if (sendOtpButton) {
                     sendOtpButton.disabled = false;
@@ -3864,6 +3940,9 @@
                 }
             } catch (error) {
                 console.error('Send OTP error:', error);
+                if (!error.message || !/Server error/i.test(error.message)) {
+                    trackSignupApi('sali_na_otp_send_failed', { error_type: 'network' });
+                }
                 restoreAfterOtpSendFailure(
                     error.message || 'Failed to send OTP. Please try again.',
                     isResend
@@ -3927,7 +4006,7 @@
             
             if (inputValue) {
                 claritySet('signup_method', 'mobile');
-                clarityEvent('signup_form_submitted');
+                trackSignupApi('sali_na_method_mobile_submit', { signup_path: 'mobile_otp' });
             }
             otpSendSource = 'mobile';
             sendOtpAndShowVerification(fullMobileNumber, mobileDigits, countryCode, selectedCountryCode_iso);
@@ -3939,6 +4018,7 @@
             const otp = otpInputs.map(input => input ? input.value : '').join('');
 
             if (otp.length !== 4) {
+                trackValidationFailed('otp_incomplete');
                 showErrorOtp('Please enter the complete OTP');
                 return;
             }
@@ -3975,6 +4055,8 @@
                 verifyOtpButton.textContent = 'Verifying...';
             }
 
+            trackSignupApi('sali_na_otp_verify_started', { signup_path: 'mobile_otp' });
+
             // Call Supabase Edge Function to verify OTP
             fetch(VERIFY_CODE_ENDPOINT, {
                 method: 'POST',
@@ -3991,8 +4073,15 @@
                 .then(async response => {
                     const data = await response.json();
                     if (!response.ok) {
+                        trackSignupApi('sali_na_otp_verify_failed', {
+                            http_status: String(response.status),
+                            error_type: data.code || 'unknown'
+                        });
                         throw new Error(data.error || data.message || `Server error: ${response.status}`);
                     }
+                    trackSignupApi('sali_na_otp_verify_success', {
+                        http_status: String(response.status)
+                    });
                     return data;
                 })
                 .then(async (verifyResponse) => {
@@ -4048,29 +4137,25 @@
 
                         const data = await signupResponse.json();
                         if (!signupResponse.ok) {
-                            // Handle "user already exists" errors more gracefully
-                            // This might happen if user exists but has staff invite (backend should handle)
-                            if (signupResponse.status === 400 || signupResponse.status === 409) {
-                                const errorMsg = (data.error || data.message || '').toLowerCase();
-                                const isAlreadyRegistered = /already|registered|exists/.test(errorMsg);
-                                if (isAlreadyRegistered && inviteTokenData && inviteTokenData.token && pendingSignupData) {
-                                    const displayMobile = pendingSignupData.mobileDisplay || pendingSignupData.mobileE164 || '';
-                                    pendingAlreadyRegistered = {
-                                        emailOrMobile: displayMobile,
-                                        isEmail: false,
-                                        token: inviteTokenData.token,
-                                        mobileE164: pendingSignupData.mobileE164
-                                    };
-                                    showAlreadyRegisteredScreen(displayMobile || pendingSignupData.mobileE164, false);
-                                    throw new Error('ALREADY_REGISTERED_SHOWN');
-                                }
-                                if (isAlreadyRegistered) {
-                                    throw new Error('Ang mobile number mo ay nakaregister na. Kung may staff invite ka, subukan mong mag-login sa halip.');
-                                }
+                            const outcome = trackSignupUserOutcome(signupResponse, data, 'mobile_otp');
+                            if (outcome.alreadyRegistered && inviteTokenData && inviteTokenData.token && pendingSignupData) {
+                                const displayMobile = pendingSignupData.mobileDisplay || pendingSignupData.mobileE164 || '';
+                                pendingAlreadyRegistered = {
+                                    emailOrMobile: displayMobile,
+                                    isEmail: false,
+                                    token: inviteTokenData.token,
+                                    mobileE164: pendingSignupData.mobileE164
+                                };
+                                showAlreadyRegisteredScreen(displayMobile || pendingSignupData.mobileE164, false);
+                                throw new Error('ALREADY_REGISTERED_SHOWN');
+                            }
+                            if (outcome.alreadyRegistered) {
+                                throw new Error('Ang mobile number mo ay nakaregister na. Kung may staff invite ka, subukan mong mag-login sa halip.');
                             }
                             throw new Error(data.error || data.message || `Signup failed: ${signupResponse.status}`);
                         }
 
+                        trackSignupUserOutcome(signupResponse, data, 'mobile_otp');
                         ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                         pendingSignupData = null;
                         return data;
@@ -4142,7 +4227,15 @@
 
                     const linkResult = await linkMobileResponse.json().catch(() => ({}));
 
-                    if (!linkMobileResponse.ok && linkMobileResponse.status !== 409) {
+                    if (linkMobileResponse.ok) {
+                        trackSignupUserOutcome(linkMobileResponse, linkResult, 'oauth_link_mobile');
+                    } else if (linkMobileResponse.status === 409) {
+                        trackSignupApi('sali_na_signup_user_already_registered', {
+                            signup_path: 'oauth_link_mobile',
+                            http_status: '409',
+                            error_type: linkResult.code || 'already_registered'
+                        });
+                    } else {
                         const errorMsg = linkResult.error || linkResult.message || 'Failed to link mobile number';
                         if (linkMobileResponse.status === 401 ||
                             linkResult.code === 'STALE_AUTH_SESSION' ||
@@ -4150,6 +4243,7 @@
                             await handleStaleAuthSession({ message: errorMsg }, { useOtpError: true });
                             throw new Error('STALE_AUTH_SESSION_HANDLED');
                         }
+                        trackSignupUserOutcome(linkMobileResponse, linkResult, 'oauth_link_mobile');
                         console.warn('Link mobile endpoint returned error:', errorMsg);
                         if (linkMobileResponse.status !== 400) {
                             throw new Error(errorMsg);
@@ -4167,7 +4261,6 @@
                         verifyOtpButton.disabled = false;
                         verifyOtpButton.textContent = 'Verify';
                     }
-                    clarityEvent('signup_otp_verified');
                     showSuccessScreen();
                 })
                 .catch(error => {
@@ -4178,6 +4271,13 @@
                     }
                     if (error.message === 'ALREADY_REGISTERED_SHOWN') return;
                     if (error.message === 'STALE_AUTH_SESSION_HANDLED') return;
+                    if (/Server error: \d+/.test(error.message || '')) {
+                        // OTP verify failure already tracked
+                    } else if (/Signup failed/i.test(error.message || '')) {
+                        // signup-user failure already tracked
+                    } else if (error.message) {
+                        trackSignupApi('sali_na_otp_verify_failed', { error_type: 'unknown' });
+                    }
                     showErrorOtp(error.message || 'Failed to verify OTP. Please try again.');
                 });
         }
@@ -4311,12 +4411,14 @@
             if (!token) {
                 // No token: show same image as "token already used" with no-invite-token message
                 claritySet('has_invite_token', 'false');
+                claritySet('token_outcome', 'missing');
                 showNoInviteToken();
                 return;
             }
 
             claritySet('has_invite_token', 'true');
             clarityTrackStep('loading');
+            trackSignupApi('sali_na_token_validate_started');
 
             // Token present: show form section with only loading state visible
             const tokenLoadingState = document.getElementById('tokenLoadingState');
@@ -4373,9 +4475,13 @@
                     console.error('Error consuming invite token:', error);
                     const msg = error.message || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.';
                     if (/already\s*used/i.test(msg)) {
+                        claritySet('token_outcome', 'used');
+                        trackSignupApi('sali_na_token_already_used');
                         showTokenAlreadyUsed();
                         return;
                     }
+                    claritySet('token_outcome', 'failed');
+                    trackSignupApi('sali_na_token_validate_failed', { error_type: 'rpc_error' });
                     showTokenError(msg);
                     if (formSection) {
                         formSection.style.display = 'block';
@@ -4393,9 +4499,13 @@
                 if (!data || !data.success) {
                     const errorMsg = data?.error || 'Invalid o expired na ang invite link. Pwede ka pa ring mag-signup manually.';
                     if (/already\s*used/i.test(errorMsg)) {
+                        claritySet('token_outcome', 'used');
+                        trackSignupApi('sali_na_token_already_used');
                         showTokenAlreadyUsed();
                         return;
                     }
+                    claritySet('token_outcome', 'failed');
+                    trackSignupApi('sali_na_token_validate_failed', { error_type: 'invalid_token' });
                     showTokenError(errorMsg);
                     if (formSection) {
                         formSection.style.display = 'block';
@@ -4551,12 +4661,16 @@
                     formSection.classList.remove('hide');
                 }
 
+                claritySet('token_outcome', 'success');
+                trackSignupApi('sali_na_token_validate_success');
                 clarityTrackStep('main');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (err) {
                 console.error('Unexpected error consuming invite token:', err);
                 hideTokenLoading();
+                claritySet('token_outcome', 'failed');
+                trackSignupApi('sali_na_token_validate_failed', { error_type: 'network' });
                 showTokenError('May naging problema sa pag-process ng invite link. Pwede ka pa ring mag-signup manually.');
                 // Show form to allow manual signup
                 const formSection = document.getElementById('formSection');
@@ -4633,6 +4747,7 @@
 
         function showNoInviteToken() {
             clarityTrackStep('no_token');
+            trackSignupApi('sali_na_no_invite_token');
             const formSection = document.getElementById('formSection');
             const tokenLoadingState = document.getElementById('tokenLoadingState');
             const tokenErrorMessage = document.getElementById('tokenErrorMessage');
@@ -4708,9 +4823,10 @@
             hideError();
             hideSuccess();
             claritySet('signup_method', provider);
-            clarityEvent('signup_oauth_started');
+            trackSignupApi('sali_na_method_oauth_started', { signup_path: 'oauth_finalize' });
             if (!supabaseClient) initSupabase();
             if (!supabaseClient) {
+                trackSignupApi('sali_na_oauth_start_failed', { error_type: 'supabase_init' });
                 showError('Unable to initialize authentication. Please try again later.');
                 return;
             }
@@ -4752,16 +4868,19 @@
             }).then(({ error, data }) => {
                 if (error) {
                     console.error('OAuth error:', error);
+                    trackSignupApi('sali_na_oauth_start_failed', { error_type: 'oauth_error' });
                     setProviderButtonsDisabled(false);
                     showError(error.message || 'Could not open provider sign in. Please try again.');
                 } else if (data?.url) {
                     // If Supabase returns a URL, redirect manually to ensure web flow
                     console.log('Redirecting to OAuth provider:', data.url);
+                    trackSignupApi('sali_na_oauth_redirect');
                     window.location.href = data.url;
                 }
                 // Otherwise, Supabase will handle redirect automatically
             }).catch((error) => {
                 console.error('OAuth catch error:', error);
+                trackSignupApi('sali_na_oauth_start_failed', { error_type: 'network' });
                 setProviderButtonsDisabled(false);
                 showError(error.message || 'Could not open provider sign in. Please try again.');
             });
@@ -4953,7 +5072,7 @@
             if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
 
             clarityTrackStep('success');
-            clarityEvent('signup_completed');
+            trackSignupApi('sali_na_ui_success_shown');
 
             // Show success section
             if (successSection) {
@@ -4999,6 +5118,9 @@
             if (alreadyRegisteredSection) {
                 alreadyRegisteredSection.classList.add('show');
                 clarityTrackStep('already_registered');
+                trackSignupApi('sali_na_already_registered_shown', {
+                    signup_path: isEmail ? 'email' : 'mobile_otp'
+                });
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
@@ -5026,6 +5148,7 @@
             const errEl = document.getElementById('alreadyRegisteredError');
             if (btn) btn.disabled = true;
             if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+            trackSignupApi('sali_na_link_existing_started', { signup_path: 'link_existing' });
             try {
                 const payload = { link_existing_user: true, token: pendingAlreadyRegistered.token };
                 if (pendingAlreadyRegistered.isEmail) {
@@ -5040,15 +5163,23 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
+                    trackSignupApi('sali_na_link_existing_failed', {
+                        signup_path: 'link_existing',
+                        http_status: String(res.status),
+                        error_type: data.code || 'unknown'
+                    });
                     if (errEl) { errEl.textContent = data.error || data.message || 'Hindi nai-link. Subukan ulit.'; errEl.style.display = 'block'; errEl.classList.add('show'); }
                     if (btn) btn.disabled = false;
                     return;
                 }
+                trackSignupApi('sali_na_link_existing_success', { signup_path: 'link_existing', http_status: String(res.status) });
+                trackSignupApi('sali_na_signup_user_success', { signup_path: 'link_existing', http_status: String(res.status) });
                 pendingAlreadyRegistered = null;
                 ingestHandoffTokenFromSignupResponse(data, { mergeOnly: false });
                 showSuccessScreen();
             } catch (e) {
                 console.error('Ako yan / link error:', e);
+                trackSignupApi('sali_na_link_existing_failed', { signup_path: 'link_existing', error_type: 'network' });
                 if (errEl) { errEl.textContent = 'May naging problema. Subukan ulit.'; errEl.style.display = 'block'; errEl.classList.add('show'); }
             }
             if (btn) btn.disabled = false;
@@ -5078,6 +5209,7 @@
 
         // Redirect to appropriate app store based on device
         function redirectToStore() {
+            trackSignupApi('sali_na_store_redirect', { device_type: detectDevice() });
             const device = detectDevice();
             if (device === 'ios') {
                 window.location.replace(INSTALL_APP_STORE_URL);
@@ -5228,6 +5360,7 @@
 
                         if (sessionError) {
                             console.error('Error setting session:', sessionError);
+                            trackSignupApi('sali_na_oauth_session_failed', { error_type: 'set_session' });
                             if (isStaleAuthUserError(sessionError)) {
                                 await handleStaleAuthSession(sessionError);
                             } else {
@@ -5237,6 +5370,7 @@
                         }
 
                         session = sessionData?.session;
+                        trackSignupApi('sali_na_oauth_session_set', { signup_path: 'oauth_finalize' });
                         console.log('Session set successfully:', session ? 'Yes' : 'No');
 
                         // Clean up URL - remove tokens from hash and query params
@@ -5254,6 +5388,7 @@
                         window.history.replaceState(null, '', cleanUrl);
                     } catch (hashError) {
                         console.error('Error processing OAuth tokens:', hashError);
+                        trackSignupApi('sali_na_oauth_session_failed', { error_type: 'network' });
                         showError('Failed to process sign in. Please try again.');
                         return;
                     }
@@ -5321,6 +5456,10 @@
                 })
                 .catch((e) => {
                     console.warn('signup-user failed:', e);
+                    trackSignupApi('sali_na_oauth_signup_user_failed', {
+                        signup_path: 'oauth_finalize',
+                        error_type: 'background_call'
+                    });
                     sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
                 });
         }
@@ -5388,11 +5527,38 @@
             });
 
             const signupUserBody = await res.json().catch(() => ({}));
-            if (res.ok || res.status === 409) {
+            if (res.ok) {
+                trackSignupApi('sali_na_oauth_signup_user_success', {
+                    signup_path: 'oauth_finalize',
+                    http_status: String(res.status)
+                });
+                trackSignupApi('sali_na_signup_user_success', {
+                    signup_path: 'oauth_finalize',
+                    http_status: String(res.status)
+                });
+                ingestHandoffTokenFromSignupResponse(signupUserBody, { mergeOnly: true });
+                return;
+            }
+            if (res.status === 409) {
+                trackSignupApi('sali_na_signup_user_already_registered', {
+                    signup_path: 'oauth_finalize',
+                    http_status: '409',
+                    error_type: signupUserBody.code || 'already_registered'
+                });
                 ingestHandoffTokenFromSignupResponse(signupUserBody, { mergeOnly: true });
                 return;
             }
             const errMsg = signupUserBody.error || signupUserBody.message || `Signup failed: ${res.status}`;
+            trackSignupApi('sali_na_oauth_signup_user_failed', {
+                signup_path: 'oauth_finalize',
+                http_status: String(res.status),
+                error_type: signupUserBody.code || 'unknown'
+            });
+            trackSignupApi('sali_na_signup_user_failed', {
+                signup_path: 'oauth_finalize',
+                http_status: String(res.status),
+                error_type: signupUserBody.code || 'unknown'
+            });
             if (res.status === 401 ||
                 signupUserBody.code === 'STALE_AUTH_SESSION' ||
                 isStaleAuthUserError(errMsg)) {
