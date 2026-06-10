@@ -1,0 +1,132 @@
+// Supabase Edge Function: request-verification-code
+// Validates mobile ownership, then sends OTP in a single request (one round trip).
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normalizePhoneNumberIntl } from '../_shared/smsProvider.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      },
+    )
+
+    const { mobile_number } = await req.json()
+
+    if (!mobile_number) {
+      return new Response(
+        JSON.stringify({ error: 'Mobile number is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const normalizedMobile = normalizePhoneNumberIntl(mobile_number)
+
+    if (!normalizedMobile) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid mobile number format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const { data: existingUser, error: checkError } = await supabaseAdmin
+      .from('users')
+      .select('id, authid, is_pending_signup, mobile_no')
+      .eq('mobile_no', normalizedMobile)
+      .not('authid', 'is', null)
+      .eq('is_pending_signup', false)
+      .maybeSingle()
+
+    if (checkError) {
+      console.error('Error checking mobile ownership:', checkError)
+      return new Response(
+        JSON.stringify({
+          error: 'Error validating mobile number',
+          code: 'VALIDATION_ERROR',
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (existingUser) {
+      return new Response(
+        JSON.stringify({
+          error: 'May nagmamay-ari na ng mobile number na ito, gumamit ng iba',
+          code: 'MOBILE_ALREADY_OWNED',
+          is_valid: false,
+        }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Delegate OTP generation, SMS (Semaphore / Twilio), and signup_codes storage to send-verification-code
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const sendOtpUrl = `${supabaseUrl}/functions/v1/send-verification-code`
+    const sendResponse = await fetch(sendOtpUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mobile_number: normalizedMobile,
+        purpose: 'signup',
+      }),
+    })
+
+    const sendData = await sendResponse.json().catch(() => ({}))
+
+    if (!sendResponse.ok) {
+      console.error('[request-verification-code] send-verification-code failed:', sendData)
+      return new Response(
+        JSON.stringify({
+          error: sendData.error || 'Failed to send verification code',
+          is_valid: true,
+        }),
+        { status: sendResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    return new Response(
+      JSON.stringify({
+        message: sendData.message || 'OTP sent successfully',
+        is_valid: true,
+        mobile_number: normalizedMobile,
+        expires_in: sendData.expires_in,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
+  } catch (error) {
+    console.error('Error in request-verification-code:', error)
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Internal server error',
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
+  }
+})
