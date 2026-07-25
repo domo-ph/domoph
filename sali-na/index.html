@@ -5522,14 +5522,22 @@
         }
 
         // Ensures signup-user is called at most once per successful OAuth claim.
-        // Returns true when claim is complete (including idempotent already-completed).
-        // Stale oauthSignupRequested (set then aborted before oauthSignupCompleted) must NOT
-        // block retries — that left token-only invites unclaimed while showing success.
+        // Concurrent callers (auth listener + processOAuthCallback) await the same promise
+        // instead of returning false while the first claim is still in flight (false error UI).
         async function callSignupUserOnce(session) {
             if (!session?.access_token) return false;
-            // Sync mutex BEFORE any await — sessionStorage alone races across concurrent callers
-            if (window.__oauthSignupInFlight) return false;
             if (sessionStorage.getItem('oauthSignupCompleted')) return true;
+
+            // Join an in-flight claim instead of treating the mutex as failure
+            if (window.__oauthSignupPromise) {
+                console.log('[OAuth] Claim already in flight — awaiting existing promise');
+                try {
+                    return await window.__oauthSignupPromise;
+                } catch (e) {
+                    // First caller already logged/handled; surface failure to this waiter too
+                    throw e;
+                }
+            }
 
             // Clear stale "requested" flag from an interrupted prior attempt so we can retry.
             if (sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) {
@@ -5538,42 +5546,50 @@
             }
 
             window.__oauthSignupInFlight = true;
+            window.__oauthSignupPromise = (async () => {
+                try {
+                    if (!supabaseClient) initSupabase();
+                    const validated = await validateOAuthSession(session);
+                    if (!validated.ok) {
+                        return false;
+                    }
 
-            try {
-                if (!supabaseClient) initSupabase();
-                const validated = await validateOAuthSession(session);
-                if (!validated.ok) {
+                    // Restore token again in case another code path cleared inviteTokenData
+                    restoreInviteTokenDataAfterOAuth();
+                    if (!inviteTokenData?.token) {
+                        const raw = sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY);
+                        console.warn('[OAuth] No invite token available for signup-user claim', { raw });
+                    }
+
+                    sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
+                    console.log('[OAuth] Calling signup-user (once)...', {
+                        hasInviteToken: !!(inviteTokenData && inviteTokenData.token),
+                        token: inviteTokenData && inviteTokenData.token,
+                    });
+                    await finalizeOAuthSignup(validated.session);
+                    sessionStorage.setItem('oauthSignupCompleted', '1');
+                    clearInviteTokenDataAfterOAuth();
+                    refreshSuccessInstallHandoffUi();
+                    return true;
+                } catch (e) {
+                    console.warn('signup-user failed:', e);
+                    trackSignupApi('sali_na_oauth_signup_user_failed', {
+                        signup_path: 'oauth_finalize',
+                        error_type: 'background_call'
+                    });
+                    sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
+                    throw e;
+                } finally {
                     window.__oauthSignupInFlight = false;
-                    return false;
+                    // Keep completed promise briefly so late joiners see oauthSignupCompleted;
+                    // clear so a true retry after failure can start fresh.
+                    if (!sessionStorage.getItem('oauthSignupCompleted')) {
+                        window.__oauthSignupPromise = null;
+                    }
                 }
+            })();
 
-                // Restore token again in case another code path cleared inviteTokenData
-                restoreInviteTokenDataAfterOAuth();
-                if (!inviteTokenData?.token) {
-                    const raw = sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY);
-                    console.warn('[OAuth] No invite token available for signup-user claim', { raw });
-                }
-
-                sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
-                console.log('[OAuth] Calling signup-user (once)...', {
-                    hasInviteToken: !!(inviteTokenData && inviteTokenData.token),
-                    token: inviteTokenData && inviteTokenData.token,
-                });
-                await finalizeOAuthSignup(validated.session);
-                sessionStorage.setItem('oauthSignupCompleted', '1');
-                clearInviteTokenDataAfterOAuth();
-                refreshSuccessInstallHandoffUi();
-                return true;
-            } catch (e) {
-                console.warn('signup-user failed:', e);
-                trackSignupApi('sali_na_oauth_signup_user_failed', {
-                    signup_path: 'oauth_finalize',
-                    error_type: 'background_call'
-                });
-                sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
-                window.__oauthSignupInFlight = false;
-                throw e;
-            }
+            return window.__oauthSignupPromise;
         }
 
         async function finalizeOAuthSignup(session) {
@@ -5706,7 +5722,8 @@
                                 console.warn('Auth listener claim retry failed:', e);
                             });
                         } else {
-                            callSignupUserOnce(session);
+                            // Let processOAuthCallback own setSession + claim (callSignupUserOnce
+                            // is shared-promise safe if auth fires again concurrently).
                             console.log('User signed in via auth state change, processing...');
                             setTimeout(() => {
                                 processOAuthCallback();
