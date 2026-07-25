@@ -5348,7 +5348,7 @@
             return null;
         }
 
-        // Process OAuth callback: set session, then show success (no mobile OTP for OAuth)
+        // Process OAuth callback: set session, then claim invite via signup-user before success
         async function processOAuthCallback() {
             // Option B: restore invite token (URL may no longer contain ?t=...)
             restoreInviteTokenDataAfterOAuth();
@@ -5356,7 +5356,7 @@
             // Synchronous checks to prevent duplicate processing
             const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
             if (alreadyProcessed) {
-                console.log('OAuth callback already processed, checking if should show success screen...');
+                console.log('OAuth callback already processed, checking if claim completed...');
                 try {
                     initSupabase();
                     if (supabaseClient) {
@@ -5370,8 +5370,13 @@
                                     showSuccessScreen();
                                 } else {
                                     try {
-                                        await callSignupUserOnce(validated.session);
-                                        showSuccessScreen();
+                                        const claimed = await callSignupUserOnce(validated.session);
+                                        if (claimed || sessionStorage.getItem('oauthSignupCompleted')) {
+                                            showSuccessScreen();
+                                        } else {
+                                            console.error('Retry claim returned without completing');
+                                            showError('Could not finish joining your household. Please try again.');
+                                        }
                                     } catch (signupErr) {
                                         console.error('Retry claim failed:', signupErr);
                                         showError(
@@ -5482,9 +5487,15 @@
                     console.log('Processing provider signup for user:', session.user?.id);
 
                     try {
-                        await callSignupUserOnce(session);
-                        console.log('Showing success screen after signup-user claim...');
-                        setTimeout(() => showSuccessScreen(), 100);
+                        const claimed = await callSignupUserOnce(session);
+                        if (claimed || sessionStorage.getItem('oauthSignupCompleted')) {
+                            console.log('Showing success screen after signup-user claim...');
+                            setTimeout(() => showSuccessScreen(), 100);
+                        } else {
+                            console.error('signup-user claim did not complete');
+                            sessionStorage.removeItem('oauthProcessed');
+                            showError('Could not finish joining your household. Please try again.');
+                        }
                     } catch (signupErr) {
                         console.error('signup-user claim failed; keeping invite token for retry:', signupErr);
                         showError(
@@ -5510,12 +5521,22 @@
             }
         }
 
-        // Ensures signup-user is called at most once per OAuth return (processOAuthCallback + auth listener can both fire).
+        // Ensures signup-user is called at most once per successful OAuth claim.
+        // Returns true when claim is complete (including idempotent already-completed).
+        // Stale oauthSignupRequested (set then aborted before oauthSignupCompleted) must NOT
+        // block retries — that left token-only invites unclaimed while showing success.
         async function callSignupUserOnce(session) {
-            if (!session?.access_token) return;
+            if (!session?.access_token) return false;
             // Sync mutex BEFORE any await — sessionStorage alone races across concurrent callers
-            if (window.__oauthSignupInFlight) return;
-            if (sessionStorage.getItem('oauthSignupCompleted') || sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) return;
+            if (window.__oauthSignupInFlight) return false;
+            if (sessionStorage.getItem('oauthSignupCompleted')) return true;
+
+            // Clear stale "requested" flag from an interrupted prior attempt so we can retry.
+            if (sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) {
+                console.warn('[OAuth] Clearing stale oauthSignupRequested to allow claim retry');
+                sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
+            }
+
             window.__oauthSignupInFlight = true;
 
             try {
@@ -5523,15 +5544,26 @@
                 const validated = await validateOAuthSession(session);
                 if (!validated.ok) {
                     window.__oauthSignupInFlight = false;
-                    return;
+                    return false;
+                }
+
+                // Restore token again in case another code path cleared inviteTokenData
+                restoreInviteTokenDataAfterOAuth();
+                if (!inviteTokenData?.token) {
+                    const raw = sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY);
+                    console.warn('[OAuth] No invite token available for signup-user claim', { raw });
                 }
 
                 sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
-                console.log('[OAuth] Calling signup-user (once)...');
+                console.log('[OAuth] Calling signup-user (once)...', {
+                    hasInviteToken: !!(inviteTokenData && inviteTokenData.token),
+                    token: inviteTokenData && inviteTokenData.token,
+                });
                 await finalizeOAuthSignup(validated.session);
                 sessionStorage.setItem('oauthSignupCompleted', '1');
                 clearInviteTokenDataAfterOAuth();
                 refreshSuccessInstallHandoffUi();
+                return true;
             } catch (e) {
                 console.warn('signup-user failed:', e);
                 trackSignupApi('sali_na_oauth_signup_user_failed', {
@@ -5666,7 +5698,11 @@
                             showSuccessScreen();
                         } else if (alreadyProcessed && !signupDone) {
                             console.log('OAuth processed but claim pending — retrying signup-user...');
-                            callSignupUserOnce(session).then(() => showSuccessScreen()).catch((e) => {
+                            callSignupUserOnce(session).then((claimed) => {
+                                if (claimed || sessionStorage.getItem('oauthSignupCompleted')) {
+                                    showSuccessScreen();
+                                }
+                            }).catch((e) => {
                                 console.warn('Auth listener claim retry failed:', e);
                             });
                         } else {
@@ -5681,15 +5717,32 @@
             }
         }
 
-        // Check for existing session on page load and show success if needed
+        // Check for existing session on page load — only show success after claim completed
         async function checkExistingSessionAndShowSuccessAfterOAuth() {
             try {
                 initSupabase();
                 if (supabaseClient) {
                     const { data: sessionData } = await supabaseClient.auth.getSession();
-                    if (sessionData?.session && sessionStorage.getItem('oauthProcessed')) {
-                        console.log('Found existing session after OAuth, showing success screen...');
+                    if (!sessionData?.session) return;
+
+                    if (sessionStorage.getItem('oauthSignupCompleted')) {
+                        console.log('Found existing session with completed claim, showing success screen...');
                         showSuccessScreen();
+                        return;
+                    }
+
+                    // oauthProcessed without claim = interrupted OAuth; retry signup-user
+                    if (sessionStorage.getItem('oauthProcessed')) {
+                        console.log('Found existing session with pending claim — retrying signup-user...');
+                        restoreInviteTokenDataAfterOAuth();
+                        try {
+                            const claimed = await callSignupUserOnce(sessionData.session);
+                            if (claimed || sessionStorage.getItem('oauthSignupCompleted')) {
+                                showSuccessScreen();
+                            }
+                        } catch (signupErr) {
+                            console.warn('Deferred claim retry failed:', signupErr);
+                        }
                     }
                 }
             } catch (e) {
