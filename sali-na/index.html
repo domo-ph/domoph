@@ -4842,20 +4842,19 @@
             setProviderButtonsDisabled(true, `Opening ${providerName}...`, buttonId);
 
             // Build web redirect URL - ensure it's HTTPS and properly formatted
+            // IMPORTANT: do NOT append ?t= here. Supabase Redirect URL allowlist is exact/prefix
+            // matched; a query string that isn't allowlisted falls back to Site URL
+            // (domohousehold://auth/callback) and the browser errors with
+            // "scheme does not have a registered handler". Invite token is preserved via
+            // sessionStorage + options.data below.
             let redirectTo = window.location.origin + window.location.pathname;
 
             // Remove trailing slash if present
             redirectTo = redirectTo.replace(/\/$/, '');
 
-            // Belt-and-suspenders: keep ?t= on redirect so web-only OAuth returns still carry the invite
             const oauthInviteToken =
                 (inviteTokenData && inviteTokenData.token) ||
                 new URLSearchParams(window.location.search).get('t');
-            if (oauthInviteToken) {
-                const redirectUrl = new URL(redirectTo, window.location.origin);
-                redirectUrl.searchParams.set('t', oauthInviteToken);
-                redirectTo = redirectUrl.toString().replace(/\/$/, '');
-            }
 
             // Ensure HTTPS (required for OAuth redirects)
             if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
@@ -4920,7 +4919,8 @@
                 // Option B: persist invite token across OAuth redirect
                 persistInviteTokenDataForOAuth();
 
-                // Build complete redirect URL with domain (required by Supabase)
+                // Build complete redirect URL with domain (required by Supabase).
+                // Do NOT append ?t= — unmatched redirectTo falls back to Site URL (app deep link).
                 let redirectTo = window.location.origin + window.location.pathname;
                 // Remove trailing slash if present
                 redirectTo = redirectTo.replace(/\/$/, '');
@@ -4928,11 +4928,6 @@
                 const oauthInviteToken =
                     (inviteTokenData && inviteTokenData.token) ||
                     new URLSearchParams(window.location.search).get('t');
-                if (oauthInviteToken) {
-                    const redirectUrl = new URL(redirectTo, window.location.origin);
-                    redirectUrl.searchParams.set('t', oauthInviteToken);
-                    redirectTo = redirectUrl.toString().replace(/\/$/, '');
-                }
 
                 console.log('OAuth redirect URL:', redirectTo);
 
