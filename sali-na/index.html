@@ -4404,11 +4404,30 @@
             }
         }
 
+        function isOAuthReturnFlow() {
+            try {
+                if (parseOAuthTokens()) return true;
+                if (sessionStorage.getItem('oauthProcessed')) return true;
+                if (sessionStorage.getItem('oauthSignupCompleted')) return true;
+                if (sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) return true;
+                if (sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY)) return true;
+            } catch (e) {
+                // sessionStorage may be unavailable
+            }
+            return false;
+        }
+
         async function checkAndValidateInviteToken() {
             const searchParams = new URLSearchParams(window.location.search);
             const token = searchParams.get('t');
             
             if (!token) {
+                // OAuth redirect omits ?t= (token is in sessionStorage). Skip "walang token"
+                // so it does not flash before the success screen.
+                if (isOAuthReturnFlow()) {
+                    claritySet('has_invite_token', sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY) ? 'true' : 'false');
+                    return;
+                }
                 // No token: show same image as "token already used" with no-invite-token message
                 claritySet('has_invite_token', 'false');
                 claritySet('token_outcome', 'missing');
