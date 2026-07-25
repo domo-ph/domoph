@@ -1986,6 +1986,12 @@
             <h1 class="logo-title">Sali na sa Domo!</h1>
         </div>
 
+        <!-- OAuth return: finishing signup before success screen -->
+        <div id="oauthLoadingState" class="token-loading-state" style="display: none;" role="status" aria-live="polite">
+            <div class="loading-spinner"></div>
+            <p class="loading-text" id="oauthLoadingText">Kinukumpleto ang sign-up...</p>
+        </div>
+
         <!-- Form Section (hidden until data is processed; then show appropriate content) -->
         <div id="formSection" class="form-section" style="display: none;">
             <!-- Loading State for Token Check -->
@@ -4299,6 +4305,7 @@
 
         async function handleStaleAuthSession(err, options = {}) {
             const useOtpError = !!(options && options.useOtpError);
+            hideOAuthProcessingLoading();
             try {
                 if (supabaseClient) {
                     await supabaseClient.auth.signOut();
@@ -4316,6 +4323,7 @@
             if (useOtpError) {
                 showErrorOtp(message);
             } else {
+                revealSignupUiAfterOAuthError();
                 showError(message);
             }
             setProviderButtonsDisabled(false);
@@ -4417,6 +4425,91 @@
             return false;
         }
 
+        /** Strong signals that OAuth callback work is in progress (not just leftover invite storage). */
+        function hasActiveOAuthCallbackSignals() {
+            try {
+                if (parseOAuthTokens()) return true;
+                if (sessionStorage.getItem('oauthProcessed')) return true;
+                if (sessionStorage.getItem('oauthSignupCompleted')) return true;
+                if (sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) return true;
+            } catch (e) {
+                // sessionStorage may be unavailable
+            }
+            return false;
+        }
+
+        function showOAuthProcessingLoading(message) {
+            const oauthLoadingState = document.getElementById('oauthLoadingState');
+            const oauthLoadingText = document.getElementById('oauthLoadingText');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const formSection = document.getElementById('formSection');
+            const mobileOtpSection = document.getElementById('mobileOtpSection');
+            const otpVerificationSection = document.getElementById('otpVerificationSection');
+            const successSection = document.getElementById('successSection');
+            const alreadyRegisteredSection = document.getElementById('alreadyRegisteredSection');
+
+            if (oauthLoadingText) {
+                oauthLoadingText.textContent = message || 'Kinukumpleto ang sign-up...';
+            }
+            if (oauthLoadingState) oauthLoadingState.style.display = 'flex';
+
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.setProperty('display', 'none', 'important');
+            }
+            if (dividerSection) {
+                dividerSection.style.setProperty('display', 'none', 'important');
+            }
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+            if (formSection) {
+                formSection.classList.add('hide');
+                formSection.style.display = 'none';
+            }
+            if (mobileOtpSection) {
+                mobileOtpSection.classList.remove('show');
+                mobileOtpSection.style.display = 'none';
+            }
+            if (otpVerificationSection) {
+                otpVerificationSection.classList.remove('show');
+                otpVerificationSection.style.display = 'none';
+            }
+            if (successSection) successSection.classList.remove('show');
+            if (alreadyRegisteredSection) alreadyRegisteredSection.classList.remove('show');
+        }
+
+        function hideOAuthProcessingLoading() {
+            const oauthLoadingState = document.getElementById('oauthLoadingState');
+            if (oauthLoadingState) oauthLoadingState.style.display = 'none';
+        }
+
+        /** After OAuth fails, hide spinner and restore UI so showError / retry buttons are visible. */
+        function revealSignupUiAfterOAuthError() {
+            hideOAuthProcessingLoading();
+            const formSection = document.getElementById('formSection');
+            const signupForm = document.getElementById('signupForm');
+            const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
+            const dividerSection = document.getElementById('dividerSection');
+            const emailMobileLinkSection = document.getElementById('emailMobileLinkSection');
+            const signupTabBar = document.getElementById('signupTabBar');
+            const buttonSection = formSection && formSection.querySelector('.button-section');
+
+            if (formSection) {
+                formSection.classList.remove('hide');
+                formSection.style.display = 'block';
+            }
+            if (signupForm) signupForm.style.display = 'block';
+            if (buttonSection) buttonSection.style.display = 'block';
+            if (signupTabBar) signupTabBar.style.display = 'none';
+            if (socialAuthButtonsSection) {
+                socialAuthButtonsSection.style.setProperty('display', 'flex', 'important');
+            }
+            if (dividerSection) {
+                dividerSection.style.setProperty('display', 'flex', 'important');
+            }
+            if (emailMobileLinkSection) emailMobileLinkSection.style.display = 'none';
+        }
+
         async function checkAndValidateInviteToken() {
             const searchParams = new URLSearchParams(window.location.search);
             const token = searchParams.get('t');
@@ -4426,6 +4519,9 @@
                 // so it does not flash before the success screen.
                 if (isOAuthReturnFlow()) {
                     claritySet('has_invite_token', sessionStorage.getItem(INVITE_TOKEN_SESSION_KEY) ? 'true' : 'false');
+                    if (hasActiveOAuthCallbackSignals()) {
+                        showOAuthProcessingLoading();
+                    }
                     return;
                 }
                 // No token: show same image as "token already used" with no-invite-token message
@@ -5083,6 +5179,8 @@
 
         // Show success screen after OTP verification or email signup (same pattern as showSocialAuthInstructions)
         function showSuccessScreen() {
+            hideOAuthProcessingLoading();
+
             // Hide all sections
             const logoSection = document.getElementById('logoSection');
             const socialAuthButtonsSection = document.getElementById('socialAuthButtonsSection');
@@ -5357,6 +5455,7 @@
             const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
             if (alreadyProcessed) {
                 console.log('OAuth callback already processed, checking if claim completed...');
+                showOAuthProcessingLoading();
                 try {
                     initSupabase();
                     if (supabaseClient) {
@@ -5375,21 +5474,30 @@
                                             showSuccessScreen();
                                         } else {
                                             console.error('Retry claim returned without completing');
+                                            revealSignupUiAfterOAuthError();
                                             showError('Could not finish joining your household. Please try again.');
                                         }
                                     } catch (signupErr) {
                                         console.error('Retry claim failed:', signupErr);
+                                        revealSignupUiAfterOAuthError();
                                         showError(
                                             (signupErr && signupErr.message) ||
                                             'Could not finish joining your household. Please try again.'
                                         );
                                     }
                                 }
+                            } else {
+                                hideOAuthProcessingLoading();
                             }
+                        } else {
+                            hideOAuthProcessingLoading();
                         }
+                    } else {
+                        hideOAuthProcessingLoading();
                     }
                 } catch (e) {
                     console.error('Error checking session after OAuth:', e);
+                    hideOAuthProcessingLoading();
                 }
                 return;
             }
@@ -5420,6 +5528,7 @@
                 let session = null;
 
                 if (tokens) {
+                    showOAuthProcessingLoading();
                     console.log('Found OAuth tokens, setting session...');
                     try {
                         // Set the session using tokens from URL
@@ -5434,6 +5543,7 @@
                             if (isStaleAuthUserError(sessionError)) {
                                 await handleStaleAuthSession(sessionError);
                             } else {
+                                revealSignupUiAfterOAuthError();
                                 showError('Failed to complete sign in. Please try again.');
                             }
                             return;
@@ -5459,6 +5569,7 @@
                     } catch (hashError) {
                         console.error('Error processing OAuth tokens:', hashError);
                         trackSignupApi('sali_na_oauth_session_failed', { error_type: 'network' });
+                        revealSignupUiAfterOAuthError();
                         showError('Failed to process sign in. Please try again.');
                         return;
                     }
@@ -5477,8 +5588,10 @@
 
                 // If we have a session and haven't processed it yet, claim invite before showing success
                 if (session) {
+                    showOAuthProcessingLoading();
                     const validated = await validateOAuthSession(session);
                     if (!validated.ok) {
+                        hideOAuthProcessingLoading();
                         return;
                     }
                     session = validated.session;
@@ -5494,10 +5607,12 @@
                         } else {
                             console.error('signup-user claim did not complete');
                             sessionStorage.removeItem('oauthProcessed');
+                            revealSignupUiAfterOAuthError();
                             showError('Could not finish joining your household. Please try again.');
                         }
                     } catch (signupErr) {
                         console.error('signup-user claim failed; keeping invite token for retry:', signupErr);
+                        revealSignupUiAfterOAuthError();
                         showError(
                             (signupErr && signupErr.message) ||
                             'Could not finish joining your household. Please try again.'
@@ -5507,10 +5622,12 @@
                     }
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
+                    hideOAuthProcessingLoading();
                     // Don't show error - user might just be visiting the page normally
                 }
             } catch (e) {
                 console.error('OAuth callback processing error:', e);
+                revealSignupUiAfterOAuthError();
                 showError('An error occurred. Please try again.');
                 // Clear processing flag on error so user can retry
                 isProcessingOAuth = false;
@@ -5714,17 +5831,22 @@
                             showSuccessScreen();
                         } else if (alreadyProcessed && !signupDone) {
                             console.log('OAuth processed but claim pending — retrying signup-user...');
+                            showOAuthProcessingLoading();
                             callSignupUserOnce(session).then((claimed) => {
                                 if (claimed || sessionStorage.getItem('oauthSignupCompleted')) {
                                     showSuccessScreen();
+                                } else {
+                                    hideOAuthProcessingLoading();
                                 }
                             }).catch((e) => {
                                 console.warn('Auth listener claim retry failed:', e);
+                                hideOAuthProcessingLoading();
                             });
                         } else {
                             // Let processOAuthCallback own setSession + claim (callSignupUserOnce
                             // is shared-promise safe if auth fires again concurrently).
                             console.log('User signed in via auth state change, processing...');
+                            showOAuthProcessingLoading();
                             setTimeout(() => {
                                 processOAuthCallback();
                             }, 100);
@@ -5751,14 +5873,18 @@
                     // oauthProcessed without claim = interrupted OAuth; retry signup-user
                     if (sessionStorage.getItem('oauthProcessed')) {
                         console.log('Found existing session with pending claim — retrying signup-user...');
+                        showOAuthProcessingLoading();
                         restoreInviteTokenDataAfterOAuth();
                         try {
                             const claimed = await callSignupUserOnce(sessionData.session);
                             if (claimed || sessionStorage.getItem('oauthSignupCompleted')) {
                                 showSuccessScreen();
+                            } else {
+                                hideOAuthProcessingLoading();
                             }
                         } catch (signupErr) {
                             console.warn('Deferred claim retry failed:', signupErr);
+                            hideOAuthProcessingLoading();
                         }
                     }
                 }
