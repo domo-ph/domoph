@@ -4847,6 +4847,16 @@
             // Remove trailing slash if present
             redirectTo = redirectTo.replace(/\/$/, '');
 
+            // Belt-and-suspenders: keep ?t= on redirect so web-only OAuth returns still carry the invite
+            const oauthInviteToken =
+                (inviteTokenData && inviteTokenData.token) ||
+                new URLSearchParams(window.location.search).get('t');
+            if (oauthInviteToken) {
+                const redirectUrl = new URL(redirectTo, window.location.origin);
+                redirectUrl.searchParams.set('t', oauthInviteToken);
+                redirectTo = redirectUrl.toString().replace(/\/$/, '');
+            }
+
             // Ensure HTTPS (required for OAuth redirects)
             if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
                 console.warn('OAuth requires HTTPS. Current protocol:', window.location.protocol);
@@ -4855,16 +4865,26 @@
             // Log for debugging
             console.log('OAuth redirect URL:', redirectTo);
 
+            const oauthOptions = {
+                redirectTo: redirectTo,
+                queryParams: {
+                    // Explicitly indicate this is a web flow
+                    access_type: 'offline',
+                    prompt: 'consent'
+                }
+            };
+            // Stamp invite intent into auth user_metadata so handle_new_user can set kasambahay
+            if (oauthInviteToken) {
+                oauthOptions.data = {
+                    role: 'kasambahay',
+                    invite_token: oauthInviteToken,
+                    invite_source: 'sali_na',
+                };
+            }
+
             supabaseClient.auth.signInWithOAuth({
                 provider: provider,
-                options: {
-                    redirectTo: redirectTo,
-                    queryParams: {
-                        // Explicitly indicate this is a web flow
-                        access_type: 'offline',
-                        prompt: 'consent'
-                    }
-                }
+                options: oauthOptions
             }).then(({ error, data }) => {
                 if (error) {
                     console.error('OAuth error:', error);
@@ -4905,17 +4925,35 @@
                 // Remove trailing slash if present
                 redirectTo = redirectTo.replace(/\/$/, '');
 
+                const oauthInviteToken =
+                    (inviteTokenData && inviteTokenData.token) ||
+                    new URLSearchParams(window.location.search).get('t');
+                if (oauthInviteToken) {
+                    const redirectUrl = new URL(redirectTo, window.location.origin);
+                    redirectUrl.searchParams.set('t', oauthInviteToken);
+                    redirectTo = redirectUrl.toString().replace(/\/$/, '');
+                }
+
                 console.log('OAuth redirect URL:', redirectTo);
+
+                const oauthOptions = {
+                    redirectTo,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent'
+                    }
+                };
+                if (oauthInviteToken) {
+                    oauthOptions.data = {
+                        role: 'kasambahay',
+                        invite_token: oauthInviteToken,
+                        invite_source: 'sali_na',
+                    };
+                }
 
                 const { error } = await supabaseClient.auth.signInWithOAuth({
                     provider,
-                    options: {
-                        redirectTo,
-                        queryParams: {
-                            access_type: 'offline',
-                            prompt: 'consent'
-                        }
-                    }
+                    options: oauthOptions
                 });
                 if (error) throw error;
                 // Will redirect; no further code runs here
@@ -5312,9 +5350,22 @@
                         if (sessionData?.session) {
                             const validated = await validateOAuthSession(sessionData.session);
                             if (validated.ok) {
-                                callSignupUserOnce(validated.session);
-                                console.log('Found active session, showing success screen...');
-                                showSuccessScreen();
+                                const signupDone = sessionStorage.getItem('oauthSignupCompleted');
+                                if (signupDone) {
+                                    console.log('Found active session with completed claim, showing success screen...');
+                                    showSuccessScreen();
+                                } else {
+                                    try {
+                                        await callSignupUserOnce(validated.session);
+                                        showSuccessScreen();
+                                    } catch (signupErr) {
+                                        console.error('Retry claim failed:', signupErr);
+                                        showError(
+                                            (signupErr && signupErr.message) ||
+                                            'Could not finish joining your household. Please try again.'
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -5405,7 +5456,7 @@
                     }
                 }
 
-                // If we have a session and haven't processed it yet, show success immediately (don't wait for signup-user)
+                // If we have a session and haven't processed it yet, claim invite before showing success
                 if (session) {
                     const validated = await validateOAuthSession(session);
                     if (!validated.ok) {
@@ -5413,14 +5464,22 @@
                     }
                     session = validated.session;
 
-                    // Mark as processed and show "Nakaregister na tayo" immediately so user doesn't wait
                     sessionStorage.setItem('oauthProcessed', '1');
                     console.log('Processing provider signup for user:', session.user?.id);
-                    console.log('Showing success screen for OAuth signup (signup-user will run in background)...');
-                    setTimeout(() => showSuccessScreen(), 100);
 
-                    // Call signup-user once in background (guard prevents duplicate calls from listener + processOAuthCallback).
-                    callSignupUserOnce(session);
+                    try {
+                        await callSignupUserOnce(session);
+                        console.log('Showing success screen after signup-user claim...');
+                        setTimeout(() => showSuccessScreen(), 100);
+                    } catch (signupErr) {
+                        console.error('signup-user claim failed; keeping invite token for retry:', signupErr);
+                        showError(
+                            (signupErr && signupErr.message) ||
+                            'Could not finish joining your household. Please try again.'
+                        );
+                        // Allow retry: clear processed flag so user can refresh/retry
+                        sessionStorage.removeItem('oauthProcessed');
+                    }
                 } else if (!session) {
                     console.log('No session found - user may not have completed OAuth flow');
                     // Don't show error - user might just be visiting the page normally
@@ -5440,28 +5499,35 @@
         // Ensures signup-user is called at most once per OAuth return (processOAuthCallback + auth listener can both fire).
         async function callSignupUserOnce(session) {
             if (!session?.access_token) return;
+            // Sync mutex BEFORE any await — sessionStorage alone races across concurrent callers
+            if (window.__oauthSignupInFlight) return;
             if (sessionStorage.getItem('oauthSignupCompleted') || sessionStorage.getItem(OAUTH_SIGNUP_REQUESTED_KEY)) return;
+            window.__oauthSignupInFlight = true;
 
-            if (!supabaseClient) initSupabase();
-            const validated = await validateOAuthSession(session);
-            if (!validated.ok) return;
+            try {
+                if (!supabaseClient) initSupabase();
+                const validated = await validateOAuthSession(session);
+                if (!validated.ok) {
+                    window.__oauthSignupInFlight = false;
+                    return;
+                }
 
-            sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
-            console.log('[OAuth] Calling signup-user (once)...');
-            finalizeOAuthSignup(validated.session)
-                .then(() => {
-                    sessionStorage.setItem('oauthSignupCompleted', '1');
-                    clearInviteTokenDataAfterOAuth();
-                    refreshSuccessInstallHandoffUi();
-                })
-                .catch((e) => {
-                    console.warn('signup-user failed:', e);
-                    trackSignupApi('sali_na_oauth_signup_user_failed', {
-                        signup_path: 'oauth_finalize',
-                        error_type: 'background_call'
-                    });
-                    sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
+                sessionStorage.setItem(OAUTH_SIGNUP_REQUESTED_KEY, '1');
+                console.log('[OAuth] Calling signup-user (once)...');
+                await finalizeOAuthSignup(validated.session);
+                sessionStorage.setItem('oauthSignupCompleted', '1');
+                clearInviteTokenDataAfterOAuth();
+                refreshSuccessInstallHandoffUi();
+            } catch (e) {
+                console.warn('signup-user failed:', e);
+                trackSignupApi('sali_na_oauth_signup_user_failed', {
+                    signup_path: 'oauth_finalize',
+                    error_type: 'background_call'
                 });
+                sessionStorage.removeItem(OAUTH_SIGNUP_REQUESTED_KEY);
+                window.__oauthSignupInFlight = false;
+                throw e;
+            }
         }
 
         async function finalizeOAuthSignup(session) {
@@ -5580,15 +5646,21 @@
                     const isOAuthSession = event === 'SIGNED_IN' || event === 'INITIAL_SESSION';
                     if (isOAuthSession && session) {
                         const alreadyProcessed = sessionStorage.getItem('oauthProcessed');
-                        callSignupUserOnce(session);
-                        if (!alreadyProcessed) {
+                        const signupDone = sessionStorage.getItem('oauthSignupCompleted');
+                        if (alreadyProcessed && signupDone) {
+                            console.log('OAuth already processed and claimed, showing success screen...');
+                            showSuccessScreen();
+                        } else if (alreadyProcessed && !signupDone) {
+                            console.log('OAuth processed but claim pending — retrying signup-user...');
+                            callSignupUserOnce(session).then(() => showSuccessScreen()).catch((e) => {
+                                console.warn('Auth listener claim retry failed:', e);
+                            });
+                        } else {
+                            callSignupUserOnce(session);
                             console.log('User signed in via auth state change, processing...');
                             setTimeout(() => {
                                 processOAuthCallback();
                             }, 100);
-                        } else {
-                            console.log('OAuth already processed, showing success screen...');
-                            showSuccessScreen();
                         }
                     }
                 });
